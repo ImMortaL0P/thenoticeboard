@@ -48,12 +48,12 @@ export default async function RunsPage() {
                   <td className="whitespace-nowrap text-muted-foreground">
                     {r.startedAt.toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
                   </td>
-                  <td className="max-w-[16rem] truncate font-medium">{r.source?.name ?? "—"}</td>
+                  <td className="max-w-[16rem] truncate font-medium">{r.source?.name ?? "-"}</td>
                   <td>{statusChip(r.status)}</td>
                   <td className="text-right tabular-nums">{r.linksFound}</td>
                   <td className="text-right tabular-nums">{r.newItems}</td>
                   <td className="max-w-[22rem] truncate text-xs text-muted-foreground" title={r.message ?? ""}>
-                    {r.message ?? "—"}
+                    {r.message ?? "-"}
                   </td>
                 </tr>
               ))

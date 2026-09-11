@@ -63,7 +63,7 @@ export default async function AdminHome() {
             {unhealthy.map((s) => (
               <li key={s.id}>
                 <Link href="/admin/sources" className="font-medium text-foreground hover:underline">{s.name}</Link>
-                {" — "}{s.lastError ?? `${s.failCount} consecutive failures`}
+                {" - "}{s.lastError ?? `${s.failCount} consecutive failures`}
               </li>
             ))}
           </ul>
@@ -89,7 +89,7 @@ export default async function AdminHome() {
                     {n.title}
                   </Link>
                   <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
-                    {n.organization?.shortName ?? "—"}
+                    {n.organization?.shortName ?? "-"}
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">{formatDate(n.createdAt.toISOString())}</span>
                 </li>
@@ -110,7 +110,7 @@ export default async function AdminHome() {
               {recentRuns.map((r) => (
                 <li key={r.id} className="flex items-center gap-3 py-2.5 text-sm">
                   <span className={`h-2 w-2 shrink-0 rounded-full ${r.status === "ok" ? "bg-emerald-500" : r.status === "running" ? "bg-amber-500" : "bg-red-500"}`} />
-                  <span className="min-w-0 flex-1 truncate font-medium">{r.source?.name ?? "—"}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{r.source?.name ?? "-"}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {r.linksFound} links · {r.newItems} new
                   </span>

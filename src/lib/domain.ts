@@ -230,12 +230,12 @@ export function maxFee(n: Pick<Notice, "fees">): number {
 }
 
 export function formatFee(value: number | null, freeLabel = "Free"): string {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "n/a";
   return value === 0 ? freeLabel : `₹${value.toLocaleString("en-IN")}`;
 }
 
 export function formatDate(value: string | null | undefined, lang = "en"): string {
-  if (!value) return "—";
+  if (!value) return "n/a";
   return new Date(`${value}T00:00:00Z`).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN", {
     day: "2-digit",
     month: "short",
@@ -245,8 +245,16 @@ export function formatDate(value: string | null | undefined, lang = "en"): strin
 }
 
 export function formatNumber(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
+  if (n === null || n === undefined) return "n/a";
   return n.toLocaleString("en-IN");
+}
+
+/** Compact age band for dense cards: 18-27, ≤ 27, 18+, or the tbd label. */
+export function formatAgeRange(min: number | null, max: number | null, tbd: string): string {
+  if (min === null && max === null) return tbd;
+  if (min === null) return `≤ ${max}`;
+  if (max === null) return `${min}+`;
+  return `${min}-${max}`;
 }
 
 export function hostOf(url: string | null | undefined): string {
@@ -319,7 +327,7 @@ export function checkEligibility(
     age = ageOn(input.dob, n.ageCutoffDate);
     const min = n.minAge ?? 0;
     if (age < min || (effectiveMaxAge !== null && age > effectiveMaxAge)) {
-      reasons.push({ key: "elig.reasonAge", vars: { age, min, max: effectiveMaxAge ?? "—" } });
+      reasons.push({ key: "elig.reasonAge", vars: { age, min, max: effectiveMaxAge ?? "n/a" } });
     }
   }
 

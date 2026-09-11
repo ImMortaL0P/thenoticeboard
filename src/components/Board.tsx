@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowRight, BadgeCheck, Search, SlidersHorizontal, X } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { NoticeCard } from "@/components/NoticeCard";
 import {
@@ -12,6 +13,7 @@ import {
   STATES,
   checkEligibility,
   daysBetween,
+  formatNumber,
   getDeadline,
   maxFee,
   reservedFee,
@@ -108,6 +110,15 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
     return { open, week, recent };
   }, [notices]);
 
+  // The single most urgent live notice, surfaced as a real-card hero asset.
+  const spotlight = useMemo(() => {
+    const open = notices.filter((n) => {
+      const d = getDeadline(n);
+      return d.boardStatus === "open" || d.boardStatus === "closing_soon";
+    });
+    return open.sort((a, b) => (a.applyLast ?? "9999").localeCompare(b.applyLast ?? "9999"))[0] ?? null;
+  }, [notices]);
+
   const activeCount = FILTER_KEYS.filter((k) => k !== "q" && k !== "sort" && k !== "sector" && params.get(k)).length;
 
   const filterPanel = (
@@ -158,7 +169,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
         <input className="input" type="number" min={0} step={50} value={get("fee")} onChange={(e) => set("fee", e.target.value)} />
       </Field>
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={get("free") === "1"} onChange={(e) => set("free", e.target.checked ? "1" : "")} />
+        <input className="accent-primary" type="checkbox" checked={get("free") === "1"} onChange={(e) => set("free", e.target.checked ? "1" : "")} />
         {t("filters.freeForReserved")}
       </label>
       <Field label={t("filters.datePosted")}>
@@ -171,7 +182,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
       </Field>
       {profile && (
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={get("eligible") === "1"} onChange={(e) => set("eligible", e.target.checked ? "1" : "")} />
+          <input className="accent-primary" type="checkbox" checked={get("eligible") === "1"} onChange={(e) => set("eligible", e.target.checked ? "1" : "")} />
           {t("filters.onlyEligible")}
         </label>
       )}
@@ -182,21 +193,27 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
   return (
     <div className="space-y-5">
       {/* Hero */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
         <div className="hero-wash" aria-hidden />
-        <div className="relative space-y-2.5 py-2 sm:py-3">
-          <span className="fact-label">{t("home.kicker")}</span>
-          <h1 className="max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">
-            {t("home.heroTitle")}
-          </h1>
-          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            {t("home.heroSub")}
-          </p>
-          <div className="flex flex-wrap gap-x-8 gap-y-3 pt-2 sm:max-w-xl">
-            <Stat label={t("stats.openNow")} value={stats.open} tone="text-open" />
-            <Stat label={t("stats.closingWeek")} value={stats.week} tone="text-urgent" />
-            <Stat label={t("stats.newToday")} value={stats.recent} tone="text-primary" />
+        <div className="dot-grid absolute inset-0 opacity-40" aria-hidden />
+        <div className="relative grid items-center gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12 lg:py-10">
+          <div className="space-y-4">
+            <span className="kicker-pill">{t("home.kicker")}</span>
+            <h1 className="max-w-2xl text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl lg:text-[2.6rem]">
+              {t("home.heroLead")}
+              <br />
+              <span className="highlight-ink text-primary">{t("home.heroAccent")}</span>
+            </h1>
+            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              {t("home.heroSub")}
+            </p>
+            <div className="flex flex-wrap items-end gap-x-8 gap-y-3 pt-2">
+              <Stat label={t("stats.openNow")} value={stats.open} tone="text-open" />
+              <Stat label={t("stats.closingWeek")} value={stats.week} tone="text-urgent" />
+              <Stat label={t("stats.newToday")} value={stats.recent} tone="text-primary" />
+            </div>
           </div>
+          {spotlight && <SpotlightCard n={spotlight} />}
         </div>
       </section>
 
@@ -268,17 +285,17 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
           </div>
 
           {filtered.length === 0 ? (
-            <div className="card p-10 text-center">
-              <p className="text-muted-foreground">{t("home.noResults")}</p>
-              <button className="btn btn-outline mt-3" onClick={reset}>{t("home.clearFilters")}</button>
+            <div className="card flex flex-col items-center px-6 py-14 text-center">
+              <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Search className="size-5" />
+              </span>
+              <p className="mt-3 text-sm font-medium text-foreground">{t("home.noResults")}</p>
+              <button className="btn btn-outline mt-4" onClick={reset}>{t("home.clearFilters")}</button>
             </div>
           ) : (
-            <div
-              className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]"
-              lang={lang}
-            >
+            <div className="flex flex-col gap-3" lang={lang}>
               {filtered.map((n, i) => (
-                <NoticeCard key={n.id} n={n} profile={profile} index={i} />
+                <NoticeCard key={n.id} n={n} profile={profile} index={i} feature={i < 3} />
               ))}
             </div>
           )}
@@ -336,11 +353,83 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="border-t border-border pt-2">
+    <div>
       <div className={cn("text-2xl font-bold tabular-nums tracking-tight", tone)}>{value}</div>
       <div className="mt-0.5 text-xs font-medium text-muted-foreground">{label}</div>
     </div>
   );
+}
+
+function SpotlightCard({ n }: { n: Notice }) {
+  const { t, lang } = useI18n();
+  const d = getDeadline(n);
+  const title = lang === "hi" && n.titleHi ? n.titleHi : n.title;
+  const org = n.organization?.shortName ?? n.organization?.name ?? "Notice";
+
+  const deadlineLabel =
+    d.days === null
+      ? t("dates.tbd")
+      : d.days === 0
+        ? t("card.lastDayToday")
+        : d.days === 1
+          ? t("card.oneDayLeft")
+          : t("card.daysLeft", { days: d.days });
+
+  const toneChip = {
+    urgent: "border-urgent/40 bg-urgent-soft text-urgent",
+    warn: "border-warn/40 bg-warn-soft text-warn-foreground",
+    open: "border-open/40 bg-open-soft text-open",
+    neutral: "border-border bg-muted text-muted-foreground",
+  }[d.tone];
+
+  const date = n.applyLast
+    ? new Date(`${n.applyLast}T00:00:00Z`).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-US", {
+        day: "numeric",
+        month: "short",
+        timeZone: "UTC",
+      })
+    : null;
+
+  return (
+    <div className="glass-panel hidden rounded-2xl p-5 lg:block">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">{org}</span>
+        <Dot />
+        <span>{t(`sector.${n.sector}`)}</span>
+        <BadgeCheck className="ml-auto size-3.5 text-verified" />
+      </div>
+      <h2 className="mt-3 line-clamp-3 text-sm font-semibold leading-snug text-foreground">
+        <Link href={`/notice/${n.id}`} className="group-hover:text-primary hover:text-primary">
+          {title}
+        </Link>
+      </h2>
+      <div className="mt-4 flex items-center gap-3">
+        <span className={cn("chip", toneChip)}>{deadlineLabel}</span>
+        {date && <span className="text-xs font-semibold tabular-nums text-muted-foreground">{date}</span>}
+      </div>
+      <dl className="mt-4 flex items-center gap-4 text-xs">
+        <SpotFact label={t("card.vacancies")} value={formatNumber(n.totalVacancies)} />
+        <SpotFact label={t("card.qualification")} value={t(`qual.${n.minQualification}`)} />
+      </dl>
+      <Link href={`/notice/${n.id}`} className="btn btn-primary btn-sm mt-5 w-full">
+        {t("card.viewDetails")}
+        <ArrowRight className="size-3.5" />
+      </Link>
+    </div>
+  );
+}
+
+function SpotFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="fact-label">{label}</dt>
+      <dd className="mt-0.5 text-[13px] font-semibold text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function Dot() {
+  return <span aria-hidden className="size-1 rounded-full bg-border" />;
 }
 
 function SectorChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -349,10 +438,10 @@ function SectorChip({ active, onClick, children }: { active: boolean; onClick: (
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition-[color,background-color,border-color] duration-150",
+        "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-[color,background-color,border-color,box-shadow] duration-150",
         active
-          ? "border-primary/40 bg-accent text-primary"
-          : "border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "border-transparent bg-foreground text-background shadow-[var(--shadow-card)]"
+          : "border-border bg-transparent text-muted-foreground hover:border-primary/30 hover:bg-muted hover:text-foreground",
       )}
     >
       {children}

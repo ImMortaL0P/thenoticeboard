@@ -57,7 +57,7 @@ export function ReviewQueueList(props: Props) {
         {props.totalVacancies && <span>{props.totalVacancies} posts</span>}
         <span>{qualLabels[props.minQualification] ?? props.minQualification}</span>
         {typeof props.maxAge === "number" && <span>≤{props.maxAge} yr</span>}
-        <span>{props.applyLast ? `by ${formatDate(props.applyLast)}` : "—"}</span>
+        <span>{props.applyLast ? `by ${formatDate(props.applyLast)}` : "-"}</span>
         <span>{formatDate(props.createdAt)}</span>
       </div>
       <span className="text-muted-foreground">→</span>

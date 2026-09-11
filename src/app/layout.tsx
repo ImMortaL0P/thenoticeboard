@@ -23,7 +23,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: { default: "thenoticeboard — verified government job notices", template: "%s · thenoticeboard" },
+  title: { default: "thenoticeboard - verified government job notices", template: "%s · thenoticeboard" },
   description:
     "Deadlines, fees, eligibility and official links for UPSC, SSC, banking, railways, defence, PSU, state PSC and verified private recruitment in India.",
 };

@@ -23,7 +23,7 @@ export function NavLinks({ admin }: { admin?: React.ReactNode }) {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={cn("btn btn-ghost btn-sm shrink-0 font-medium", active && "bg-muted text-foreground")}
+            className={cn("btn btn-ghost btn-sm shrink-0 font-medium", active && "bg-accent text-foreground")}
           >
             {t(labelKey)}
           </Link>

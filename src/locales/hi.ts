@@ -17,6 +17,8 @@ export const hi: Partial<Record<TranslationKey, string>> = {
   "nav.theme": "थीम बदलें",
   "nav.employers": "नियोक्ताओं के लिए",
   "nav.admin": "एडमिन",
+  "nav.links": "एक्सप्लोर",
+  "nav.verify": "सत्यापन",
 
   "home.title": "नोटिस बोर्ड",
   "home.searchPlaceholder": "पद, विभाग या विज्ञापन संख्या खोजें",
@@ -30,6 +32,8 @@ export const hi: Partial<Record<TranslationKey, string>> = {
   "home.heroSub":
     "यूपीएससी, एसएससी, बैंक, रेलवे, रक्षा, पीएसयू, राज्य आयोग और सत्यापित निजी नियोक्ताओं की अंतिम तिथि, शुल्क, पात्रता और आधिकारिक लिंक।",
   "home.kicker": "सत्यापित सरकारी भर्ती",
+  "home.heroLead": "सरकारी भर्ती सूचनाएँ,",
+  "home.heroAccent": "स्रोत से सत्यापित।",
 
   "stats.openNow": "अभी खुले",
   "stats.closingWeek": "इस सप्ताह बंद",

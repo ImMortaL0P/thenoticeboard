@@ -31,7 +31,7 @@ export default async function ReviewQueuePage() {
       <div>
         <h1 className="text-xl font-bold">Review queue</h1>
         <p className="text-sm text-muted-foreground">
-          Scraped and submitted notices land here as drafts — nothing is ever auto-published.
+          Scraped and submitted notices land here as drafts. Nothing is ever auto-published.
         </p>
       </div>
 
@@ -62,7 +62,7 @@ export default async function ReviewQueuePage() {
               <ReviewQueueList
                 id={n.id}
                 title={n.title}
-                orgShortName={n.organization?.shortName ?? "—"}
+                orgShortName={n.organization?.shortName ?? "-"}
                 sourceName={n.source?.name ?? null}
                 origin={n.origin}
                 advertisementNo={n.advertisementNo}

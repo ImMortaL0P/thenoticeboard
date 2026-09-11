@@ -7,7 +7,7 @@ export default function Contact() {
       <p>Spotted an error in a notice, or want your organisation listed? Write to us.</p>
       <p>
         Email: <a className="text-primary hover:underline" href="mailto:hello@thenoticeboard.in">hello@thenoticeboard.in</a>{" "}
-        <span className="text-muted-foreground">(placeholder — replace with your address)</span>
+        <span className="text-muted-foreground">(placeholder - replace with your address)</span>
       </p>
     </article>
   );

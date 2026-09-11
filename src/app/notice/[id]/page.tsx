@@ -9,6 +9,7 @@ import { profileToInput } from "@/lib/profile";
 import {
   FEE_KEYS,
   checkEligibility,
+  formatAgeRange,
   formatDate,
   formatFee,
   formatNumber,
@@ -71,8 +72,9 @@ export default async function NoticePage({ params }: Props) {
 
       <header className="card space-y-4 p-5">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <OrgBadge name={n.organization?.name} shortName={n.organization?.shortName} />
           <span className="font-semibold text-foreground">{n.organization?.name}</span>
-          <span>·</span>
+          <Dot />
           <span>{t(`sector.${n.sector}`)}</span>
           {n.isSample && <span className="chip border-border bg-muted">{t("card.sample")}</span>}
         </div>
@@ -81,10 +83,10 @@ export default async function NoticePage({ params }: Props) {
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           <Fact label={t("card.vacancies")} value={formatNumber(n.totalVacancies)} />
           <Fact label={t("card.lastDate")} value={formatDate(n.applyLast, lang)} />
-          <Fact label={t("card.age")} value={`${n.minAge ?? "—"}–${n.maxAge ?? "—"}`} />
+          <Fact label={t("card.age")} value={formatAgeRange(n.minAge, n.maxAge, t("dates.tbd"))} />
           <Fact label={t("card.qualification")} value={t(`qual.${n.minQualification}`)} />
           <Fact label={t("card.fee")} value={`${formatFee(n.fees.general ?? null, t("card.free"))} / ${formatFee(n.fees.sc ?? null, t("card.free"))}`} />
-          <Fact label={t("detail.advertisement")} value={n.advertisementNo ?? "—"} />
+          <Fact label={t("detail.advertisement")} value={n.advertisementNo ?? t("dates.tbd")} />
         </dl>
         <div className="flex flex-wrap items-center gap-2">
           <span className={cn("chip", toneClasses[d.tone])}>{t(`status.${d.boardStatus === "closing_soon" ? "closingSoon" : d.boardStatus}`)}</span>
@@ -130,7 +132,7 @@ export default async function NoticePage({ params }: Props) {
 
           <Section title={t("detail.eligibility")}>
             <dl className="grid gap-3 sm:grid-cols-2">
-              <Fact label={t("detail.ageLimit")} value={`${n.minAge ?? "—"}–${n.maxAge ?? "—"} ${n.ageCutoffDate ? `(${t("detail.cutoffDate", { date: formatDate(n.ageCutoffDate, lang) })})` : ""}`} />
+              <Fact label={t("detail.ageLimit")} value={`${formatAgeRange(n.minAge, n.maxAge, t("dates.tbd"))}${n.ageCutoffDate ? ` (${t("detail.cutoffDate", { date: formatDate(n.ageCutoffDate, lang) })})` : ""}`} />
               <Fact label={t("detail.minQualification")} value={t(`qual.${n.minQualification}`)} />
               {n.streams.length > 0 && <Fact label={t("detail.streams")} value={n.streams.join(", ")} />}
               {n.experienceRequiredYears > 0 && <Fact label={t("card.experience")} value={t("detail.years", { n: n.experienceRequiredYears })} />}
@@ -143,7 +145,7 @@ export default async function NoticePage({ params }: Props) {
                   <thead><tr><th>{t("detail.category")}</th><th>{t("detail.relaxationYears")}</th><th>{t("detail.effectiveMaxAge")}</th></tr></thead>
                   <tbody>
                     {relax.map(([k, v]) => (
-                      <tr key={k}><td>{relaxLabel[k] ?? k}</td><td>+{v}</td><td>{n.maxAge !== null ? n.maxAge + v : "—"}</td></tr>
+                      <tr key={k}><td>{relaxLabel[k] ?? k}</td><td>+{v}</td><td>{n.maxAge !== null ? n.maxAge + v : t("dates.tbd")}</td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -223,7 +225,7 @@ export default async function NoticePage({ params }: Props) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="card p-5">
-      <h2 className="mb-3 text-base font-bold">{title}</h2>
+      <h2 className="mb-3 text-sm font-bold tracking-tight">{title}</h2>
       {children}
     </section>
   );
@@ -236,4 +238,17 @@ function Fact({ label, value }: { label: string; value: string }) {
       <dd className="fact-value">{value}</dd>
     </div>
   );
+}
+
+function OrgBadge({ name, shortName }: { name?: string | null; shortName?: string | null }) {
+  const base = (shortName ?? name ?? "N").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "N";
+  return (
+    <span className="avatar bg-accent text-primary" aria-hidden>
+      {base}
+    </span>
+  );
+}
+
+function Dot() {
+  return <span aria-hidden className="size-1 rounded-full bg-border" />;
 }

@@ -71,7 +71,7 @@ export function ReviewForm({
     <form id="review-form" className="card p-5">
       {extractionMethod === "rules" && (
         <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
-          Extracted automatically by rules — please check dates, vacancies and fees against the official
+          Extracted automatically by rules, please check dates, vacancies and fees against the official
           notification before approving.
         </div>
       )}
@@ -114,13 +114,13 @@ export function ReviewForm({
         <Field label="Selection process">
           <TextInput name="selectionProcess" defaultValue={defaults.selectionProcess} />
         </Field>
-        <Field label="Fee — general (₹)">
+        <Field label="Fee - general (₹)">
           <TextInput name="feeGeneral" type="number" min={0} defaultValue={defaults.feeGeneral || ""} />
         </Field>
-        <Field label="Fee — SC/ST/PwBD (₹)">
+        <Field label="Fee - SC/ST/PwBD (₹)">
           <TextInput name="feeReserved" type="number" min={0} defaultValue={defaults.feeReserved || ""} />
         </Field>
-        <Field label="Fee — other notes">
+        <Field label="Fee - other notes">
           <TextInput name="feeOther" defaultValue={defaults.feeOther} />
         </Field>
       </div>

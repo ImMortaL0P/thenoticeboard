@@ -15,6 +15,8 @@ export const en = {
   "nav.theme": "Toggle theme",
   "nav.employers": "For employers",
   "nav.admin": "Admin",
+  "nav.links": "Explore",
+  "nav.verify": "Verification",
 
   "home.title": "Notice board",
   "home.searchPlaceholder": "Search post, department or advertisement no.",
@@ -28,6 +30,8 @@ export const en = {
   "home.heroSub":
     "Deadlines, fees, eligibility and official download links from UPSC, SSC, banks, railways, defence, PSUs, state PSCs and verified private employers.",
   "home.kicker": "Verified government recruitment",
+  "home.heroLead": "Government job notices,",
+  "home.heroAccent": "verified at the source.",
 
   "stats.openNow": "Open now",
   "stats.closingWeek": "Closing this week",

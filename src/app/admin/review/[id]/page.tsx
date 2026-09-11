@@ -86,7 +86,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
         <details className="card p-4">
           <summary className="cursor-pointer select-none text-sm font-medium text-muted-foreground">
             Raw extracted text ({notice.rawText.length.toLocaleString("en-IN")} chars)
-            {notice.extractionMethod === "rules" && " — auto-extracted, verify before approving"}
+            {notice.extractionMethod === "rules" && " - auto-extracted, verify before approving"}
           </summary>
           <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-4 text-xs leading-relaxed text-foreground/80">
             {notice.rawText}
