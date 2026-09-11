@@ -182,9 +182,9 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
   return (
     <div className="space-y-5">
       <section className="space-y-3">
-        <h1 className="text-2xl font-bold sm:text-3xl">{t("home.heroTitle")}</h1>
-        <p className="max-w-3xl text-sm text-muted-foreground sm:text-base">{t("home.heroSub")}</p>
-        <div className="grid grid-cols-3 gap-2 sm:max-w-xl">
+        <h1 className="max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">{t("home.heroTitle")}</h1>
+        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{t("home.heroSub")}</p>
+        <div className="flex flex-wrap gap-x-8 gap-y-3 sm:max-w-xl">
           <Stat label={t("stats.openNow")} value={stats.open} tone="text-open" />
           <Stat label={t("stats.closingWeek")} value={stats.week} tone="text-urgent" />
           <Stat label={t("stats.newToday")} value={stats.recent} tone="text-primary" />
@@ -285,9 +285,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="card px-3 py-2">
-      <div className={cn("text-xl font-bold", tone)}>{value}</div>
-      <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+    <div className="border-t border-border pt-2">
+      <div className={cn("text-2xl font-bold tabular-nums tracking-tight", tone)}>{value}</div>
+      <div className="mt-0.5 text-xs font-medium text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -298,8 +298,10 @@ function SectorChip({ active, onClick, children }: { active: boolean; onClick: (
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-        active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
+        "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition-[color,background-color,border-color] duration-150",
+        active
+          ? "border-primary/40 bg-accent text-primary"
+          : "border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {children}

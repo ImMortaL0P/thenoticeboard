@@ -41,7 +41,7 @@ export function NoticeCard({ n, profile }: { n: Notice; profile?: EligibilityInp
               : t("dates.tbd");
 
   return (
-    <article className="card relative flex flex-col overflow-hidden transition-shadow hover:shadow-[var(--shadow-lift)]">
+    <article className="card relative flex flex-col overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-foreground/10 hover:shadow-[var(--shadow-lift)]">
       <span className={cn("absolute inset-y-0 left-0 w-1", toneBar[d.tone])} aria-hidden />
       <div className="flex flex-1 flex-col gap-3 p-4 pl-5">
         <div className="flex items-start justify-between gap-2">

@@ -21,12 +21,18 @@ import { cn } from "@/lib/utils";
 
 type Props = { params: Promise<{ id: string }> };
 
+/** MongoDB: nested orderBy inside include not supported — fetch separately. */
 async function load(id: string) {
   const row = await prisma.notification.findFirst({
     where: { id, status: { in: ["published", "closed"] } },
-    include: { organization: true, updates: { orderBy: { date: "desc" } } },
+    include: { organization: true },
   });
-  return row;
+  if (!row) return null;
+  const updates = await prisma.notificationUpdate.findMany({
+    where: { notificationId: id },
+    orderBy: { date: "desc" },
+  });
+  return { ...row, updates };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

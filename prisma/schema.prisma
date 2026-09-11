@@ -1,19 +1,18 @@
-// thenoticeboard data model
-// Local dev: SQLite. Production: change provider to "postgresql" and DATABASE_URL accordingly.
-// Enum-like fields are plain strings (validated in src/lib/domain.ts) so the schema
-// works identically on SQLite and Postgres. List/object fields use Json.
+// thenoticeboard data model — MongoDB Atlas
+// Enum-like fields are plain strings (validated in src/lib/domain.ts).
+// List/object fields use Json (native MongoDB types — no serialization needed).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model Organization {
-  id              String         @id @default(cuid())
+  id              String         @id @default(auto()) @db.ObjectId @map("_id")
   name            String
   shortName       String         @unique
   sector          String // central_govt | banking_insurance | railways | defence | psu | state_psc | private
@@ -26,11 +25,13 @@ model Organization {
   notifications   Notification[]
   sources         Source[]
   employer        EmployerProfile?
+
+  @@map("Organization")
 }
 
 model Notification {
-  id                      String   @id @default(cuid())
-  organizationId          String
+  id                      String   @id @default(auto()) @db.ObjectId @map("_id")
+  organizationId          String   @db.ObjectId
   organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title                   String
   titleHi                 String?
@@ -70,7 +71,7 @@ model Notification {
 
   // provenance for scraped / submitted items
   origin                  String   @default("manual") // manual | scraper | employer
-  sourceId                String?
+  sourceId                String?  @db.ObjectId
   source                  Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   discoveredUrl           String?
   rawText                 String?
@@ -92,21 +93,24 @@ model Notification {
   @@index([status])
   @@index([sector])
   @@index([applyLast])
+  @@map("Notification")
 }
 
 model NotificationUpdate {
-  id             String       @id @default(cuid())
-  notificationId String
+  id             String       @id @default(auto()) @db.ObjectId @map("_id")
+  notificationId String       @db.ObjectId
   notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   type           String // corrigendum | date_extension | admit_card | answer_key | result
   title          String
   link           String?
   date           String // YYYY-MM-DD
   createdAt      DateTime     @default(now())
+
+  @@map("NotificationUpdate")
 }
 
 model User {
-  id                 String   @id @default(cuid())
+  id                 String   @id @default(auto()) @db.ObjectId @map("_id")
   email              String   @unique
   passwordHash       String
   role               String   @default("user") // user | employer | reviewer | admin
@@ -128,30 +132,33 @@ model User {
   language           String   @default("en")
 
   // telegram
-  telegramChatId     String?  @unique
-  telegramLinkCode   String?  @unique
+  telegramChatId     String?  // enforced unique in app code — MongoDB null collision
+  telegramLinkCode   String?  // enforced unique in app code — MongoDB null collision
   alertsEnabled      Boolean  @default(true)
   alertOnlyEligible  Boolean  @default(true)
 
   saved              SavedNotification[]
   alerts             AlertLog[]
   employer           EmployerProfile?
+
+  @@map("User")
 }
 
 model SavedNotification {
-  id             String       @id @default(cuid())
-  userId         String
+  id             String       @id @default(auto()) @db.ObjectId @map("_id")
+  userId         String       @db.ObjectId
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notificationId String
+  notificationId String       @db.ObjectId
   notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
 
   @@unique([userId, notificationId])
+  @@map("SavedNotification")
 }
 
 model EmployerProfile {
-  id             String        @id @default(cuid())
-  userId         String        @unique
+  id             String        @id @default(auto()) @db.ObjectId @map("_id")
+  userId         String        @unique @db.ObjectId
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyName    String
   website        String
@@ -161,17 +168,19 @@ model EmployerProfile {
   phone          String?
   status         String        @default("pending") // pending | verified | rejected
   notes          String?
-  organizationId String?       @unique
+  organizationId String?       @unique @db.ObjectId
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+
+  @@map("EmployerProfile")
 }
 
 model Source {
-  id              String        @id @default(cuid())
+  id              String        @id @default(auto()) @db.ObjectId @map("_id")
   name            String
   url             String        @unique
-  organizationId  String?
+  organizationId  String?       @db.ObjectId
   organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   sector          String
   kind            String        @default("html") // html | rss
@@ -189,20 +198,24 @@ model Source {
   links           DiscoveredLink[]
   runs            ScrapeRun[]
   notifications   Notification[]
+
+  @@map("Source")
 }
 
 model DiscoveredLink {
-  id        String   @id @default(cuid())
-  sourceId  String
+  id        String   @id @default(auto()) @db.ObjectId @map("_id")
+  sourceId  String   @db.ObjectId
   source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   url       String   @unique
   text      String?
   createdAt DateTime @default(now())
+
+  @@map("DiscoveredLink")
 }
 
 model ScrapeRun {
-  id         String    @id @default(cuid())
-  sourceId   String?
+  id         String    @id @default(auto()) @db.ObjectId @map("_id")
+  sourceId   String?   @db.ObjectId
   source     Source?   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   startedAt  DateTime  @default(now())
   finishedAt DateTime?
@@ -210,23 +223,28 @@ model ScrapeRun {
   linksFound Int       @default(0)
   newItems   Int       @default(0)
   message    String?
+
+  @@map("ScrapeRun")
 }
 
 model AlertLog {
-  id             String       @id @default(cuid())
-  userId         String
+  id             String       @id @default(auto()) @db.ObjectId @map("_id")
+  userId         String       @db.ObjectId
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notificationId String
+  notificationId String       @db.ObjectId
   notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   kind           String // new | deadline_3d | deadline_1d | update
   channel        String       @default("telegram")
   sentAt         DateTime     @default(now())
 
   @@unique([userId, notificationId, kind])
+  @@map("AlertLog")
 }
 
 model KeyValue {
-  key       String   @id
+  key       String   @id @map("_id")
   value     String
   updatedAt DateTime @updatedAt
+
+  @@map("KeyValue")
 }

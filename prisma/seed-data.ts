@@ -7,7 +7,7 @@ export type SeedNotice = {
   minAge: number; maxAge: number; cutoff: number | null; relax: Record<string, number>; exp: number;
   fees: Record<string, number>; selection: string; pay: string;
   notif: number; applyStart: number; applyLast: number; exam: number | null; admit: number | null;
-  pdf: string; apply: string; src: string;
+  pdf: string | null; apply: string; src: string;
 };
 
 export const SEED_NOTICES: SeedNotice[] = [

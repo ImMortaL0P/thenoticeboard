@@ -13,15 +13,23 @@ function offset(days: number | null | undefined): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+async function upsertOrg(data: { shortName: string; name: string; sector: string; state?: string | null; officialWebsite?: string }) {
+  const existing = await prisma.organization.findFirst({ where: { shortName: data.shortName } });
+  if (existing) return existing;
+  return prisma.organization.create({ data: { ...data, isVerified: true } });
+}
+
+async function upsertSource(data: { url: string; name: string; sector: string; organizationId?: string | null }) {
+  const existing = await prisma.source.findFirst({ where: { url: data.url } });
+  if (existing) return existing;
+  return prisma.source.create({ data });
+}
+
 async function main() {
   console.log("Seeding organisations...");
   const orgIds = new Map<string, string>();
   for (const o of SEED_ORGS) {
-    const org = await prisma.organization.upsert({
-      where: { shortName: o.shortName },
-      update: {},
-      create: { ...o, isVerified: true },
-    });
+    const org = await upsertOrg(o);
     orgIds.set(o.shortName, org.id);
   }
 
@@ -86,11 +94,7 @@ async function main() {
 
   console.log("Seeding scraper sources...");
   for (const s of SEED_SOURCES) {
-    await prisma.source.upsert({
-      where: { url: s.url },
-      update: {},
-      create: { name: s.name, url: s.url, sector: s.sector, organizationId: orgIds.get(s.org) ?? null },
-    });
+    await upsertSource({ name: s.name, url: s.url, sector: s.sector, organizationId: orgIds.get(s.org) ?? null });
   }
 
   const email = (process.env.ADMIN_EMAIL || "admin@thenoticeboard.local").toLowerCase();
