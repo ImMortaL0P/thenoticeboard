@@ -1,6 +1,7 @@
 // One full scrape of a single source: fetch index → discover links → parse new
 // pages → extract fields → save draft Notifications (pending_review) + ScrapeRun log.
 
+import * as cheerio from "cheerio";
 import { prisma } from "../db";
 import type { Prisma, Source } from "@prisma/client";
 import { fetchHtml } from "./fetch";
@@ -18,6 +19,30 @@ export type RunResult = {
 
 const MAX_NEW = Math.max(1, Number(process.env.SCRAPE_MAX_NEW_PER_SOURCE ?? 10));
 const MAX_RAW = 40 * 1024;
+
+// Runtime guards against pages that would only pollute the review queue.
+
+function looksHtml(text: string): boolean {
+  return /^\s*<!doctype html/i.test(text) || /<html[\s>]/i.test(text);
+}
+
+/** Strip markup so stored rawText / extraction see visible text, not source. */
+function htmlToText(raw: string): string {
+  return cheerio.load(raw).text().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Reject extracted text that clearly isn't readable prose:
+ * scanned Devanagari PDFs extract as byte-mangled ASCII full of '^' carets
+ * (pdf-parse can't map their non-Unicode fonts), which a length check passes.
+ */
+function readableText(raw: string): boolean {
+  const t = raw.trim();
+  if (t.length < 40) return false;
+  const caretDensity = (t.match(/\^/g) ?? []).length / t.length;
+  if (caretDensity > 0.002) return false;
+  return true;
+}
 
 function slugify(s: string): string {
   return (
@@ -113,7 +138,8 @@ export async function runScrapeForSource(source: SourceWithOrg): Promise<RunResu
       } catch {
         continue; // link is dead or unparseable — skip, don't fail the run
       }
-      if (rawText.trim().length < 40) {
+      if (looksHtml(rawText)) rawText = htmlToText(rawText);
+      if (!readableText(rawText)) {
         thin.push(link);
         continue;
       }

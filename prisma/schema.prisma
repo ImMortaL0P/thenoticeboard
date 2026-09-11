@@ -186,7 +186,7 @@ model Source {
   kind            String        @default("html") // html | rss
   linkSelector    String        @default("a")
   includePattern  String        @default("recruit|notification|advertisement|advt|vacanc|bharti|भर्ती|विज्ञापन|engagement|walk-in|apprentice")
-  excludePattern  String        @default("result|answer key|admit card|syllabus|tender|archive")
+  excludePattern  String        @default("result|answer key|admit card|syllabus|tender|archive|index\\.php|help\\.php|gallery|norms|home|login|register|previous|next")
   intervalHours   Int           @default(3)
   active          Boolean       @default(true)
   lastRunAt       DateTime?
