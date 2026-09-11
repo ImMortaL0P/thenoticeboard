@@ -246,7 +246,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
       </div>
 
       {/* Sector chips */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="scroll-x-thin flex gap-1.5 overflow-x-auto pb-1">
         <SectorChip active={!get("sector")} onClick={() => set("sector", "")}>{t("home.allSectors")}</SectorChip>
         {SECTORS.map((s) => (
           <SectorChip key={s} active={get("sector") === s} onClick={() => set("sector", get("sector") === s ? "" : s)}>

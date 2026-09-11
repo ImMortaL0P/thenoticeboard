@@ -188,6 +188,9 @@
     text-rendering: optimizeLegibility;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
+  html {
+    scrollbar-gutter: stable;
+  }
   h1,
   h2,
   h3,
@@ -212,7 +215,12 @@
     line-height: 1.65;
   }
   :focus-visible {
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+    border-radius: 2px;
+  }
+  :where([id]) {
+    scroll-margin-top: 6.5rem;
   }
 }
 
@@ -316,6 +324,22 @@
 
   .kicker-pill {
     @apply inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/25 bg-accent/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary;
+  }
+
+  /* Slim, theme-aware scrollbar for horizontal utility strips. */
+  .scroll-x-thin {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--color-foreground) 22%, transparent) transparent;
+  }
+  .scroll-x-thin::-webkit-scrollbar {
+    height: 6px;
+  }
+  .scroll-x-thin::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--color-foreground) 22%, transparent);
+  }
+  .scroll-x-thin::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 
