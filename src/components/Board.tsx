@@ -181,13 +181,22 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
 
   return (
     <div className="space-y-5">
-      <section className="space-y-3">
-        <h1 className="max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">{t("home.heroTitle")}</h1>
-        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{t("home.heroSub")}</p>
-        <div className="flex flex-wrap gap-x-8 gap-y-3 sm:max-w-xl">
-          <Stat label={t("stats.openNow")} value={stats.open} tone="text-open" />
-          <Stat label={t("stats.closingWeek")} value={stats.week} tone="text-urgent" />
-          <Stat label={t("stats.newToday")} value={stats.recent} tone="text-primary" />
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <div className="hero-wash" aria-hidden />
+        <div className="relative space-y-2.5 py-2 sm:py-3">
+          <span className="fact-label">{t("home.kicker")}</span>
+          <h1 className="max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">
+            {t("home.heroTitle")}
+          </h1>
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            {t("home.heroSub")}
+          </p>
+          <div className="flex flex-wrap gap-x-8 gap-y-3 pt-2 sm:max-w-xl">
+            <Stat label={t("stats.openNow")} value={stats.open} tone="text-open" />
+            <Stat label={t("stats.closingWeek")} value={stats.week} tone="text-urgent" />
+            <Stat label={t("stats.newToday")} value={stats.recent} tone="text-primary" />
+          </div>
         </div>
       </section>
 
@@ -197,6 +206,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
         </p>
       )}
 
+      {/* Toolbar */}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -218,6 +228,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
         </button>
       </div>
 
+      {/* Sector chips */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         <SectorChip active={!get("sector")} onClick={() => set("sector", "")}>{t("home.allSectors")}</SectorChip>
         {SECTORS.map((s) => (
@@ -227,49 +238,89 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[260px_1fr]">
+        {/* Desktop sidebar */}
         <aside className="hidden lg:block">
-          <div className="card sticky top-20 p-4">
-            <h2 className="mb-3 text-sm font-bold">{t("filters.title")}</h2>
-            {filterPanel}
+          <div className="sticky top-20 space-y-2">
+            <h2 className="px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {t("filters.title")}
+            </h2>
+            <div className="card p-4">{filterPanel}</div>
           </div>
         </aside>
 
-        <section>
-          <p className="mb-3 text-sm text-muted-foreground">{t("home.results", { count: filtered.length })}</p>
+        <section className="min-w-0">
+          {/* Results header */}
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-muted-foreground">
+              {t("home.results", { count: filtered.length })}
+            </p>
+            {activeCount > 0 && (
+              <button
+                type="button"
+                onClick={reset}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-colors hover:text-primary/70"
+              >
+                <X className="size-3.5" />
+                {t("home.clearFilters")}
+              </button>
+            )}
+          </div>
+
           {filtered.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-muted-foreground">{t("home.noResults")}</p>
               <button className="btn btn-outline mt-3" onClick={reset}>{t("home.clearFilters")}</button>
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2" lang={lang}>
-              {filtered.map((n) => (
-                <NoticeCard key={n.id} n={n} profile={profile} />
+            <div
+              className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]"
+              lang={lang}
+            >
+              {filtered.map((n, i) => (
+                <NoticeCard key={n.id} n={n} profile={profile} index={i} />
               ))}
             </div>
           )}
         </section>
       </div>
 
-      {/* mobile bottom sheet */}
-      {sheetOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
-          <button className="absolute inset-0 bg-black/40" aria-label="Close" onClick={() => setSheetOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-border bg-background p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-bold">{t("filters.title")}</h2>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSheetOpen(false)} aria-label="Close">
-                <X className="size-4" />
-              </button>
-            </div>
-            {filterPanel}
-            <button className="btn btn-primary mt-3 w-full" onClick={() => setSheetOpen(false)}>
-              {t("filters.apply")} ({filtered.length})
+      {/* Mobile bottom sheet — always mounted for slide animation */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 lg:hidden sheet-mask",
+          sheetOpen ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+        role="dialog"
+        aria-modal="true"
+        aria-hidden={!sheetOpen}
+        inert={!sheetOpen}
+      >
+        <button
+          className="absolute inset-0 bg-black/40"
+          aria-label="Close"
+          onClick={() => setSheetOpen(false)}
+          tabIndex={sheetOpen ? 0 : -1}
+        />
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 shadow-[var(--shadow-lift)]",
+            "sheet-panel",
+            sheetOpen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0",
+          )}
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-bold">{t("filters.title")}</h2>
+            <button className="btn btn-ghost btn-sm" onClick={() => setSheetOpen(false)} aria-label="Close">
+              <X className="size-4" />
             </button>
           </div>
+          {filterPanel}
+          <button className="btn btn-primary mt-3 w-full" onClick={() => setSheetOpen(false)}>
+            {t("filters.apply")} ({filtered.length})
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

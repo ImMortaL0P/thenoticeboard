@@ -29,6 +29,7 @@ export const hi: Partial<Record<TranslationKey, string>> = {
   "home.heroTitle": "सरकारी भर्ती सूचनाएँ, स्रोत से सत्यापित।",
   "home.heroSub":
     "यूपीएससी, एसएससी, बैंक, रेलवे, रक्षा, पीएसयू, राज्य आयोग और सत्यापित निजी नियोक्ताओं की अंतिम तिथि, शुल्क, पात्रता और आधिकारिक लिंक।",
+  "home.kicker": "सत्यापित सरकारी भर्ती",
 
   "stats.openNow": "अभी खुले",
   "stats.closingWeek": "इस सप्ताह बंद",

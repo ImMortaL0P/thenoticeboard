@@ -10,6 +10,7 @@
 
 @theme inline {
   --font-sans: var(--font-instrument), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-instrument), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -172,6 +173,7 @@
     -webkit-text-size-adjust: 100%;
     color-scheme: light;
     overflow-x: clip;
+    scroll-behavior: smooth;
   }
   html.dark {
     color-scheme: dark;
@@ -183,15 +185,17 @@
     font-feature-settings: "cv02", "cv03", "cv04", "tnum";
     line-height: 1.5;
     text-rendering: optimizeLegibility;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
   h1,
   h2,
-  h3 {
+  h3,
+  h4 {
+    font-family: var(--font-display);
     letter-spacing: -0.02em;
-    line-height: 1.15;
+    line-height: 1.12;
     text-wrap: balance;
   }
-  h4,
   h5,
   h6 {
     letter-spacing: -0.01em;
@@ -208,6 +212,57 @@
   }
   :focus-visible {
     outline-offset: 2px;
+  }
+}
+
+/* Smooth, subtle motion — ease in/out only, never at the expense of readability. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer components {
+  .stagger-row {
+    opacity: 0;
+    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .sheet-mask {
+    transition: opacity 0.22s ease;
+  }
+  .sheet-panel {
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+  }
+  .hero-wash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(58rem 24rem at 16% -12%, color-mix(in oklch, var(--color-accent) 60%, transparent), transparent 72%),
+      radial-gradient(48rem 22rem at 84% -26%, color-mix(in oklch, var(--color-open-soft) 80%, transparent), transparent 72%);
+  }
+  .content-view {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 9.5rem;
+  }
+}
+
+@layer base {
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
