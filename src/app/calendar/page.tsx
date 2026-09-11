@@ -1,10 +1,30 @@
-import { ComingSoon } from "@/components/ComingSoon";
+import { prisma } from "@/lib/db";
+import { toNotice } from "@/lib/domain";
+import { getCurrentUser } from "@/lib/auth";
+import { Calendar } from "@/components/Calendar";
 
-export default function Page() {
+export const dynamic = "force-dynamic";
+
+export default async function CalendarPage() {
+  const [rows, user] = await Promise.all([
+    prisma.notification.findMany({
+      where: { status: { in: ["published", "closed"] } },
+      include: { organization: true },
+      orderBy: { applyLast: "asc" },
+    }),
+    getCurrentUser(),
+  ]);
+
+  let savedIds: string[] = [];
+  if (user) {
+    const saved = await prisma.savedNotification.findMany({
+      where: { userId: user.id },
+      select: { notificationId: true },
+    });
+    savedIds = saved.map((s) => s.notificationId);
+  }
+
   return (
-    <ComingSoon title="Deadline calendar" phase="Phase 2">
-      Month view of apply deadlines, fee dates, exams, admit cards and results, with a “saved only” toggle.
-      Per-notice .ics export already works from each notice page.
-    </ComingSoon>
+    <Calendar notices={rows.map(toNotice)} savedIds={savedIds} hasUser={!!user} />
   );
 }

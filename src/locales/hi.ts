@@ -208,6 +208,8 @@ export const hi: Partial<Record<TranslationKey, string>> = {
   "calendar.prev": "पिछला",
   "calendar.next": "अगला",
   "calendar.upcoming": "आगामी तिथियाँ",
+  "calendar.tapDay": "किसी तारीख पर टैप करके उसकी समय-सीमाएँ देखें।",
+  "calendar.noEventsDay": "इस तारीख को कोई समय-सीमा नहीं है।",
 
   "auth.title": "thenoticeboard में साइन इन करें",
   "auth.signupTitle": "अपना खाता बनाएँ",

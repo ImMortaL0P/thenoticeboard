@@ -207,6 +207,8 @@ export const en = {
   "calendar.prev": "Previous",
   "calendar.next": "Next",
   "calendar.upcoming": "Upcoming dates",
+  "calendar.tapDay": "Tap a date to see its deadlines.",
+  "calendar.noEventsDay": "No deadlines on this date.",
 
   "auth.title": "Sign in to thenoticeboard",
   "auth.signupTitle": "Create your account",
