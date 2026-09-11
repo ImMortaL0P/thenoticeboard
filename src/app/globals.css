@@ -1,0 +1,253 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * thenoticeboard design system (tokens carried over from the Lovable build)
+ * Deep navy/indigo primary, information-dense cards, urgency colour scale.
+ * All colours are oklch semantic tokens. Never hardcode colours in components.
+ */
+
+@theme inline {
+  --font-sans: var(--font-inter), "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-verified: var(--verified);
+  --color-verified-foreground: var(--verified-foreground);
+
+  --color-urgent: var(--urgent);
+  --color-urgent-foreground: var(--urgent-foreground);
+  --color-urgent-soft: var(--urgent-soft);
+  --color-warn: var(--warn);
+  --color-warn-foreground: var(--warn-foreground);
+  --color-warn-soft: var(--warn-soft);
+  --color-open: var(--open);
+  --color-open-foreground: var(--open-foreground);
+  --color-open-soft: var(--open-soft);
+  --color-neutral: var(--neutral);
+  --color-neutral-foreground: var(--neutral-foreground);
+  --color-neutral-soft: var(--neutral-soft);
+
+  --color-ev-apply: var(--urgent);
+  --color-ev-fee: var(--warn);
+  --color-ev-exam: var(--primary);
+  --color-ev-admit: var(--verified);
+  --color-ev-result: var(--open);
+
+  --shadow-card: 0 1px 2px oklch(0.25 0.05 265 / 0.06), 0 1px 3px oklch(0.25 0.05 265 / 0.06);
+  --shadow-lift: 0 6px 24px oklch(0.25 0.05 265 / 0.1);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  --background: oklch(0.985 0.004 260);
+  --foreground: oklch(0.21 0.035 265);
+  --surface: oklch(0.965 0.008 260);
+  --surface-foreground: oklch(0.32 0.03 265);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.035 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.035 265);
+
+  --primary: oklch(0.36 0.11 266);
+  --primary-foreground: oklch(0.985 0.005 260);
+  --brand: oklch(0.29 0.09 266);
+  --brand-foreground: oklch(0.98 0.005 260);
+
+  --secondary: oklch(0.945 0.012 262);
+  --secondary-foreground: oklch(0.32 0.06 266);
+  --muted: oklch(0.955 0.008 260);
+  --muted-foreground: oklch(0.505 0.028 262);
+  --accent: oklch(0.93 0.03 262);
+  --accent-foreground: oklch(0.32 0.08 266);
+
+  --destructive: oklch(0.55 0.21 25);
+  --destructive-foreground: oklch(0.985 0.005 260);
+
+  --border: oklch(0.9 0.012 260);
+  --input: oklch(0.9 0.012 260);
+  --ring: oklch(0.53 0.12 266);
+
+  --verified: oklch(0.5 0.11 172);
+  --verified-foreground: oklch(0.99 0.005 170);
+
+  --urgent: oklch(0.55 0.2 26);
+  --urgent-foreground: oklch(0.99 0.01 30);
+  --urgent-soft: oklch(0.955 0.035 25);
+  --warn: oklch(0.63 0.14 72);
+  --warn-foreground: oklch(0.2 0.05 70);
+  --warn-soft: oklch(0.96 0.05 85);
+  --open: oklch(0.52 0.12 152);
+  --open-foreground: oklch(0.99 0.01 150);
+  --open-soft: oklch(0.955 0.04 155);
+  --neutral: oklch(0.55 0.015 260);
+  --neutral-foreground: oklch(0.99 0.002 260);
+  --neutral-soft: oklch(0.94 0.008 260);
+}
+
+.dark {
+  --background: oklch(0.17 0.025 265);
+  --foreground: oklch(0.95 0.008 260);
+  --surface: oklch(0.21 0.03 265);
+  --surface-foreground: oklch(0.9 0.01 260);
+
+  --card: oklch(0.215 0.03 265);
+  --card-foreground: oklch(0.95 0.008 260);
+  --popover: oklch(0.215 0.03 265);
+  --popover-foreground: oklch(0.95 0.008 260);
+
+  --primary: oklch(0.68 0.14 268);
+  --primary-foreground: oklch(0.16 0.03 265);
+  --brand: oklch(0.72 0.13 268);
+  --brand-foreground: oklch(0.16 0.03 265);
+
+  --secondary: oklch(0.27 0.035 265);
+  --secondary-foreground: oklch(0.93 0.01 260);
+  --muted: oklch(0.26 0.03 265);
+  --muted-foreground: oklch(0.68 0.02 260);
+  --accent: oklch(0.3 0.05 266);
+  --accent-foreground: oklch(0.95 0.01 260);
+
+  --destructive: oklch(0.62 0.19 25);
+  --destructive-foreground: oklch(0.98 0.01 30);
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.6 0.12 267);
+
+  --verified: oklch(0.68 0.12 172);
+  --verified-foreground: oklch(0.16 0.03 170);
+
+  --urgent: oklch(0.65 0.19 26);
+  --urgent-foreground: oklch(0.16 0.03 25);
+  --urgent-soft: oklch(0.31 0.08 25);
+  --warn: oklch(0.75 0.14 78);
+  --warn-foreground: oklch(0.93 0.04 80);
+  --warn-soft: oklch(0.32 0.06 80);
+  --open: oklch(0.68 0.13 155);
+  --open-foreground: oklch(0.16 0.03 150);
+  --open-soft: oklch(0.29 0.06 155);
+  --neutral: oklch(0.6 0.015 260);
+  --neutral-foreground: oklch(0.16 0.02 260);
+  --neutral-soft: oklch(0.28 0.02 260);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "tnum";
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+  :lang(hi) body {
+    line-height: 1.6;
+  }
+}
+
+@utility fact-label {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted-foreground);
+  font-weight: 600;
+}
+
+@utility fact-value {
+  font-size: 0.8125rem;
+  line-height: 1.15rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+/* Small component primitives (no UI library needed) */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-accent;
+  }
+  .btn-outline {
+    @apply border border-border bg-card text-foreground hover:bg-muted;
+  }
+  .btn-ghost {
+    @apply text-foreground hover:bg-muted;
+  }
+  .btn-danger {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+  }
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+  .input {
+    @apply w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-2 focus:outline-offset-0 focus:outline-ring;
+  }
+  .label {
+    @apply mb-1 block text-xs font-semibold text-muted-foreground;
+  }
+  .card {
+    @apply rounded-xl border border-border bg-card text-card-foreground shadow-[var(--shadow-card)];
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-4;
+  }
+  .table-base {
+    @apply w-full text-sm;
+  }
+  .table-base th {
+    @apply border-b border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground;
+  }
+  .table-base td {
+    @apply border-b border-border px-3 py-2 align-top;
+  }
+}

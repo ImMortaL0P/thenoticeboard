@@ -1,0 +1,232 @@
+// thenoticeboard data model
+// Local dev: SQLite. Production: change provider to "postgresql" and DATABASE_URL accordingly.
+// Enum-like fields are plain strings (validated in src/lib/domain.ts) so the schema
+// works identically on SQLite and Postgres. List/object fields use Json.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id              String         @id @default(cuid())
+  name            String
+  shortName       String         @unique
+  sector          String // central_govt | banking_insurance | railways | defence | psu | state_psc | private
+  state           String?
+  officialWebsite String?
+  logoUrl         String?
+  isVerified      Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  notifications   Notification[]
+  sources         Source[]
+  employer        EmployerProfile?
+}
+
+model Notification {
+  id                      String   @id @default(cuid())
+  organizationId          String
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title                   String
+  titleHi                 String?
+  summary                 String?
+  summaryHi               String?
+  postNames               Json     @default("[]") // string[]
+  advertisementNo         String?
+  totalVacancies          Int?
+  vacancyBreakup          Json     @default("{}") // { UR: 100, OBC: 50 ... }
+  status                  String   @default("draft") // draft | pending_review | published | closed | archived | rejected
+  sector                  String
+  state                   String?
+  location                String?
+  minQualification        String   @default("any") // 10th | 12th | diploma | graduate | engineering | postgraduate | phd | any
+  qualificationDetails    String?
+  streams                 Json     @default("[]") // string[]
+  minAge                  Int?
+  maxAge                  Int?
+  ageCutoffDate           String? // YYYY-MM-DD
+  ageRelaxation           Json     @default("{}") // { sc_st: 5, obc: 3, pwbd: 10, esm: 3, female: 0 }
+  experienceRequiredYears Float    @default(0)
+  fees                    Json     @default("{}") // { general, obc, ews, sc, st, female, pwbd }
+  selectionProcess        String?
+  payLevel                String?
+  notificationDate        String?
+  applyStart              String?
+  applyLast               String?
+  feeLast                 String?
+  examDate                String?
+  admitCardDate           String?
+  resultDate              String?
+  officialNotificationPdfUrl String?
+  applyUrl                String?
+  officialSourceUrl       String?
+  sourceVerifiedAt        DateTime?
+  isSample                Boolean  @default(false)
+
+  // provenance for scraped / submitted items
+  origin                  String   @default("manual") // manual | scraper | employer
+  sourceId                String?
+  source                  Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  discoveredUrl           String?
+  rawText                 String?
+  extractionMethod        String? // ai-anthropic | ai-openai | rules
+  extractionNotes         String?
+  submittedById           String?
+  reviewedById            String?
+  reviewedAt              DateTime?
+  rejectReason            String?
+  alertsSentAt            DateTime?
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  updates                 NotificationUpdate[]
+  saved                   SavedNotification[]
+  alerts                  AlertLog[]
+
+  @@index([status])
+  @@index([sector])
+  @@index([applyLast])
+}
+
+model NotificationUpdate {
+  id             String       @id @default(cuid())
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  type           String // corrigendum | date_extension | admit_card | answer_key | result
+  title          String
+  link           String?
+  date           String // YYYY-MM-DD
+  createdAt      DateTime     @default(now())
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  passwordHash       String
+  role               String   @default("user") // user | employer | reviewer | admin
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // candidate profile
+  fullName           String?
+  dob                String?
+  gender             String?
+  category           String?
+  pwbd               Boolean  @default(false)
+  exServicemen       Boolean  @default(false)
+  highestQualification String?
+  stream             String?
+  experienceYears    Float    @default(0)
+  state              String?
+  preferredSectors   Json     @default("[]")
+  language           String   @default("en")
+
+  // telegram
+  telegramChatId     String?  @unique
+  telegramLinkCode   String?  @unique
+  alertsEnabled      Boolean  @default(true)
+  alertOnlyEligible  Boolean  @default(true)
+
+  saved              SavedNotification[]
+  alerts             AlertLog[]
+  employer           EmployerProfile?
+}
+
+model SavedNotification {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, notificationId])
+}
+
+model EmployerProfile {
+  id             String        @id @default(cuid())
+  userId         String        @unique
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName    String
+  website        String
+  officialEmail  String
+  registrationNo String? // GSTIN / CIN
+  contactName    String?
+  phone          String?
+  status         String        @default("pending") // pending | verified | rejected
+  notes          String?
+  organizationId String?       @unique
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Source {
+  id              String        @id @default(cuid())
+  name            String
+  url             String        @unique
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  sector          String
+  kind            String        @default("html") // html | rss
+  linkSelector    String        @default("a")
+  includePattern  String        @default("recruit|notification|advertisement|advt|vacanc|bharti|भर्ती|विज्ञापन|engagement|walk-in|apprentice")
+  excludePattern  String        @default("result|answer key|admit card|syllabus|tender|archive")
+  intervalHours   Int           @default(3)
+  active          Boolean       @default(true)
+  lastRunAt       DateTime?
+  lastStatus      String? // ok | error
+  lastError       String?
+  failCount       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  links           DiscoveredLink[]
+  runs            ScrapeRun[]
+  notifications   Notification[]
+}
+
+model DiscoveredLink {
+  id        String   @id @default(cuid())
+  sourceId  String
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  url       String   @unique
+  text      String?
+  createdAt DateTime @default(now())
+}
+
+model ScrapeRun {
+  id         String    @id @default(cuid())
+  sourceId   String?
+  source     Source?   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  status     String    @default("running") // running | ok | error
+  linksFound Int       @default(0)
+  newItems   Int       @default(0)
+  message    String?
+}
+
+model AlertLog {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  kind           String // new | deadline_3d | deadline_1d | update
+  channel        String       @default("telegram")
+  sentAt         DateTime     @default(now())
+
+  @@unique([userId, notificationId, kind])
+}
+
+model KeyValue {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
