@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, BadgeCheck, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowRight, BadgeCheck, Search, SlidersHorizontal, X, ExternalLink, Bell } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { NoticeCard } from "@/components/NoticeCard";
+import { ProcessSteps } from "@/components/ProcessSteps";
 import {
   CATEGORIES,
   QUALIFICATIONS,
@@ -216,6 +217,9 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
           {spotlight && <SpotlightCard n={spotlight} />}
         </div>
       </section>
+
+      {/* Our Process Section */}
+      <ProcessSteps />
 
       {notices.some((n) => n.isSample) && (
         <p className="rounded-lg border border-warn/40 bg-warn-soft px-3 py-2 text-xs font-medium text-warn-foreground">
