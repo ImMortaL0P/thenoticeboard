@@ -202,3 +202,33 @@ export async function runSourceNowAction(_: ActionState, form: FormData): Promis
         : `Run failed: ${res.message}`,
   };
 }
+export async function addSourceAction(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const parsed = sourceSchema.safeParse(Object.fromEntries(form.entries()));
+  if (!parsed.success) {
+    return { error: `Invalid fields: ${parsed.error.issues.map((i) => i.path.join(".")).slice(0, 3).join(", ")}` };
+  }
+  await prisma.source.create({ data: { ...parsed.data, active: true } });
+  revalidatePath("/admin/sources");
+  return { ok: true, message: "Source added." };
+}
+
+export async function runAllSourcesAction(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const sources = await prisma.source.findMany({ where: { active: true }, include: { organization: true } });
+  
+  if (sources.length === 0) return { error: "No active sources found." };
+  
+  // Note: we let this run in the background because running all could take a while
+  // and Vercel serverless functions time out after 10s on hobby tier.
+  // We'll kick it off and return immediately.
+  const promises = sources.map(s => runScrapeForSource(s).catch(console.error));
+  
+  // We don't await the promises so they just run in background
+  Promise.all(promises).then(() => {
+     // cannot revalidate inside here easily reliably due to context loss,
+     // but the run log will populate.
+  });
+  
+  return { ok: true, message: `Scraping started in background for ${sources.length} active sources. Check Runs tab in a few minutes.` };
+}

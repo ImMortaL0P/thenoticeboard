@@ -9,8 +9,8 @@
  */
 
 @theme inline {
-  --font-sans: var(--font-instrument), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: var(--font-space-grotesk), var(--font-instrument), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-karla), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-montserrat), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

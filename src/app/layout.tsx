@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instrument_Sans, Noto_Sans_Devanagari, Space_Grotesk } from "next/font/google";
+import { Montserrat, Karla, Noto_Sans_Devanagari } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -9,19 +9,19 @@ import { getLang } from "@/lib/i18n-server";
 import { Preloader } from "@/components/Preloader";
 import { SmoothScroll } from "@/components/SmoothScroll";
 
-const instrument = Instrument_Sans({
+const montserrat = Montserrat({
   subsets: ["latin"],
-  variable: "--font-instrument",
+  variable: "--font-montserrat",
+  display: "swap",
+});
+const karla = Karla({
+  subsets: ["latin"],
+  variable: "--font-karla",
   display: "swap",
 });
 const notoDevanagari = Noto_Sans_Devanagari({
   subsets: ["devanagari"],
   variable: "--font-devanagari",
-  display: "swap",
-});
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
   display: "swap",
 });
 
@@ -39,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang={lang}
-      className={`${instrument.variable} ${notoDevanagari.variable} ${spaceGrotesk.variable}`}
+      className={`${montserrat.variable} ${karla.variable} ${notoDevanagari.variable}`}
       suppressHydrationWarning
     >
       <head>
