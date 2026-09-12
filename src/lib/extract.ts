@@ -12,8 +12,12 @@ export type NoticeDraft = {
   feeGeneral: number | null;
   feeReserved: number | null;
   applyLast: string | null;
+  applyStart: string | null;
   notificationDate: string | null;
   summary: string | null;
+  payLevel: string | null;
+  selectionProcess: string | null;
+  experienceRequiredYears: number | null;
 };
 
 export const EMPTY_DRAFT: NoticeDraft = {
@@ -26,8 +30,12 @@ export const EMPTY_DRAFT: NoticeDraft = {
   feeGeneral: null,
   feeReserved: null,
   applyLast: null,
+  applyStart: null,
   notificationDate: null,
   summary: null,
+  payLevel: null,
+  selectionProcess: null,
+  experienceRequiredYears: null,
 };
 
 function toNumber(s: string | undefined | null): number | null {
@@ -163,6 +171,42 @@ function detectAdNo(text: string): string | null {
   return v;
 }
 
+function detectApplyStart(text: string): string | null {
+  const dates = tokenizeDates(text);
+  const start = dates.find(({ offset }) => {
+    const ctx = text.slice(Math.max(0, offset - 160), offset).toLowerCase();
+    return /(?:starting|commenc|आरंभ|शुरू|प्रारंभ)/.test(ctx);
+  });
+  return start?.date ?? null;
+}
+
+function detectPayLevel(text: string): string | null {
+  const raw = text.slice(0, 6000);
+  // "Pay Level 7 ₹44,900-1,42,400", "Level 10", "Level-7 (₹44,900...)"
+  const level = raw.match(/(?:pay\s+)?level\s*-?\s*(\d+|I{1,3}|X{1,3}|IV?|V?I{0,3})(?=[^\d]|$)/i);
+  const details = raw.match(/(?:pay\s+level\s*[-:]?\s*)?(\d{2,3}(?:,\d{3})*\s*-\s*\d{2,3}(?:,\d{3})*)/);
+  if (details) return details[1].trim();
+  if (level) return `Level ${level[1].toUpperCase()}`;
+  return null;
+}
+
+function detectSelectionProcess(text: string): string | null {
+  const slice = text.slice(0, 5000);
+  const m = slice.match(
+    /(?:selection\s*process|mode\s*of\s*selection|चयन\s*प्रक्रिया|selection\s*procedure)[^:\n]*?[:\-]([^.\n]{10,240})/i,
+  );
+  if (!m) return null;
+  return m[1].replace(/\s+/g, " ").trim().replace(/^[,;:\s]+/, "");
+}
+
+function detectExperience(text: string): number | null {
+  const slice = text.slice(0, 4000);
+  // "experience: X years", "X years experience", "1 year post-qualification experience"
+  const m = slice.match(/(?:experience|अनुभव)[^0-9]{0,40}?(\d{1,2})\s*(?:years?|वर्ष)/i) ||
+            slice.match(/(\d{1,2})\s*(?:years?|वर्ष)\s*(?:of\s*)?(?:experience|अनुभव)/i);
+  return m ? toNumber(m[1]) : null;
+}
+
 // ---------- title / summary ----------
 
 const TITLE_HINT = /recruit\w*|vacanc\w*|posts?\s+of|भर्ती|रिक्ति\w*|notification\s+no\.?/i;
@@ -223,8 +267,12 @@ export function extractFromText(raw: string, fallbackTitle: string | null): Noti
     feeGeneral: fees.feeGeneral,
     feeReserved: fees.feeReserved,
     applyLast: dates.applyLast,
+    applyStart: detectApplyStart(text),
     notificationDate: dates.notificationDate,
     advertisementNo: detectAdNo(text),
     summary: pickSummary(lines, title),
+    payLevel: detectPayLevel(text),
+    selectionProcess: detectSelectionProcess(text),
+    experienceRequiredYears: detectExperience(text),
   };
 }

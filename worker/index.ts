@@ -30,7 +30,7 @@ async function scrapeDueSources(manual: boolean): Promise<void> {
   console.log(`Scraping ${due.length} of ${sources.length} active source(s)…`);
   for (const source of due) {
     const res = await runScrapeForSource(source);
-    const summary = `[${res.status.toUpperCase()}] ${source.name} — found ${res.linksFound} link(s), ${res.newItems} new item(s)`;
+    const summary = `[${res.status.toUpperCase()}] ${source.name} — found ${res.linksFound} link(s), ${res.newItems} new, ${res.extendedItems ?? 0} extended`;
     console.log(res.status === "ok" ? summary : `${summary}\n  ${res.message}`);
   }
 }

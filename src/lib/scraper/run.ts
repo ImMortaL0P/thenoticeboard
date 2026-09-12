@@ -6,7 +6,7 @@ import { prisma } from "../db";
 import type { Prisma, Source } from "@prisma/client";
 import { fetchHtml } from "./fetch";
 import { discoverLinks, type DiscoveredItem } from "./discover";
-import { extractFromText } from "../extract";
+import { autoExtract } from "./ai";
 
 export type SourceWithOrg = Prisma.SourceGetPayload<{ include: { organization: true } }>;
 export type RunResult = {
@@ -14,6 +14,7 @@ export type RunResult = {
   status: "ok" | "error";
   linksFound: number;
   newItems: number;
+  extendedItems: number;
   message: string;
 };
 
@@ -67,14 +68,60 @@ async function orgIdFor(source: SourceWithOrg): Promise<string> {
   return org.id;
 }
 
-async function saveNotice(
+async function processDiscoveredLink(
   source: SourceWithOrg,
   organizationId: string,
   link: DiscoveredItem,
   rawText: string,
-): Promise<void> {
-  const draft = extractFromText(rawText, link.text);
+): Promise<'new' | 'extended' | 'already_handled'> {
+  // Check if we already have this official URL or discovered URL in DB.
+  let existingNotification = await prisma.notification.findFirst({
+    where: {
+      OR: [
+        { discoveredUrl: link.url },
+        { officialSourceUrl: link.url }
+      ]
+    },
+    include: { updates: true }
+  });
 
+  const { draft, method } = await autoExtract(rawText, link.text);
+
+  if (existingNotification) {
+    // Already exists. Let's see if the closing date extended.
+    if (draft.applyLast && existingNotification.applyLast) {
+      if (draft.applyLast > existingNotification.applyLast) {
+        // Date got extended!
+        // Check if we already created an update for this date
+        const hasUpdate = existingNotification.updates.some(u => u.type === 'date_extension' && u.date === draft.applyLast);
+        if (!hasUpdate) {
+          await prisma.notificationUpdate.create({
+            data: {
+              notificationId: existingNotification.id,
+              type: "date_extension",
+              title: `Date Extended to ${draft.applyLast}`,
+              date: draft.applyLast,
+              link: link.url
+            }
+          });
+          // Also update the main row if it's not closed yet, though we leave it to reviewer ideally.
+          // We will update the applyLast and set to pending_review so the reviewer checks it.
+          await prisma.notification.update({
+            where: { id: existingNotification.id },
+            data: {
+              applyLast: draft.applyLast,
+              status: "pending_review",
+              extractionNotes: `Detected date extension via AI/scraper from ${existingNotification.applyLast} to ${draft.applyLast}.`
+            }
+          });
+          return 'extended';
+        }
+      }
+    }
+    return 'already_handled';
+  }
+
+  // It's a brand new notification
   const data: Prisma.NotificationUncheckedCreateInput = {
     organizationId,
     title: draft.title ?? `${source.organization?.shortName ?? source.name} notice`,
@@ -86,12 +133,16 @@ async function saveNotice(
     minAge: draft.minAge ?? undefined,
     maxAge: draft.maxAge ?? undefined,
     totalVacancies: draft.totalVacancies ?? undefined,
+    payLevel: draft.payLevel ?? undefined,
+    experienceRequiredYears: draft.experienceRequiredYears ?? undefined,
+    selectionProcess: draft.selectionProcess ?? undefined,
     fees: {
       general: draft.feeGeneral ?? undefined,
       sc: draft.feeReserved ?? undefined,
       st: draft.feeReserved ?? undefined,
       pwbd: draft.feeReserved ?? undefined,
     },
+    applyStart: draft.applyStart ?? undefined,
     applyLast: draft.applyLast ?? undefined,
     notificationDate: draft.notificationDate ?? undefined,
     advertisementNo: draft.advertisementNo ?? undefined,
@@ -100,12 +151,11 @@ async function saveNotice(
     rawText: rawText.slice(0, MAX_RAW),
     origin: "scraper",
     sourceId: source.id,
-    extractionMethod: "rules",
+    extractionMethod: method,
   };
 
-  const already = await prisma.notification.findFirst({ where: { discoveredUrl: link.url } });
-  if (already) return;
   await prisma.notification.create({ data });
+  return 'new';
 }
 
 export async function runScrapeForSource(source: SourceWithOrg): Promise<RunResult> {
@@ -124,6 +174,7 @@ export async function runScrapeForSource(source: SourceWithOrg): Promise<RunResu
 
     const organizationId = await orgIdFor(source);
     let newItems = 0;
+    let extendedItems = 0;
     const thin: DiscoveredItem[] = [];
 
     for (const link of fresh) {
@@ -144,8 +195,9 @@ export async function runScrapeForSource(source: SourceWithOrg): Promise<RunResu
         continue;
       }
       try {
-        await saveNotice(source, organizationId, link, rawText);
-        newItems++;
+        const action = await processDiscoveredLink(source, organizationId, link, rawText);
+        if (action === 'new') newItems++;
+        if (action === 'extended') extendedItems++;
       } catch (err) {
         console.warn(`  save failed for ${link.url}: ${err instanceof Error ? err.message : err}`);
       }
@@ -169,10 +221,10 @@ export async function runScrapeForSource(source: SourceWithOrg): Promise<RunResu
         status: "ok",
         linksFound: found.length,
         newItems,
-        message: `Found ${found.length} links, ${newItems} new item(s). ${note}`,
+        message: `Found ${found.length} links, ${newItems} new item(s), ${extendedItems} extended. ${note}`,
       },
     });
-    return { sourceId: source.id, status: "ok", linksFound: found.length, newItems, message: "" };
+    return { sourceId: source.id, status: "ok", linksFound: found.length, newItems, extendedItems, message: "" };
   } catch (err) {
     const msg = err instanceof Error ? err.message.slice(0, 300) : String(err);
     await prisma.source.update({
@@ -183,6 +235,6 @@ export async function runScrapeForSource(source: SourceWithOrg): Promise<RunResu
       where: { id: run.id },
       data: { finishedAt: new Date(), status: "error", message: msg },
     });
-    return { sourceId: source.id, status: "error", linksFound: 0, newItems: 0, message: msg };
+    return { sourceId: source.id, status: "error", linksFound: 0, newItems: 0, extendedItems: 0, message: msg };
   }
 }
