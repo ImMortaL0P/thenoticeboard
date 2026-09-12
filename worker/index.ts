@@ -8,6 +8,7 @@ import "dotenv/config";
 import cron from "node-cron";
 import { prisma } from "../src/lib/db";
 import { runScrapeForSource } from "../src/lib/scraper/run";
+import { startBot } from "./telegram";
 
 const once = process.argv.includes("--scrape-once");
 const cronExpr = process.env.SCRAPE_CRON ?? "0 */3 * * *";

@@ -6,14 +6,15 @@ import { ReviewQueueList } from "@/components/ReviewQueueList";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReviewQueuePage() {
+export default async function ReviewQueuePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab: queryTab } = await searchParams;
   await requireStaff();
   const tabs = [
     { key: "pending_review", label: "Pending review" },
     { key: "published", label: "Published" },
     { key: "rejected", label: "Rejected" },
   ] as const;
-  const tab = "pending_review";
+  const tab = (queryTab ?? "pending_review") as "pending_review" | "published" | "rejected";
 
   const items = await prisma.notification.findMany({
     where: { status: tab },
@@ -39,14 +40,15 @@ export default async function ReviewQueuePage() {
         {tabs.map((t) => {
           const c = counts.find((x) => x.key === t.key);
           return (
-            <span
+            <Link
               key={t.key}
+              href={`/admin/review?tab=${t.key}`}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                t.key === tab ? "bg-accent text-foreground" : "text-muted-foreground"
+                t.key === tab ? "bg-accent text-foreground hover:bg-accent/80" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t.label} · {c?.n ?? 0}
-            </span>
+            </Link>
           );
         })}
       </div>

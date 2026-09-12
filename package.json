@@ -30,6 +30,7 @@
     "lucide-react": "^0.544.0",
     "next": "^15.5.3",
     "node-cron": "^4.2.1",
+    "node-telegram-bot-api": "^2.1.0",
     "pdf-parse": "^1.1.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -39,6 +40,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^22.18.0",
+    "@types/node-telegram-bot-api": "^0.64.15",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",

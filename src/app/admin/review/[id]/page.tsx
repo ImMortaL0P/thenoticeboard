@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { ReviewForm } from "@/components/ReviewForm";
+import { TelegramBroadcastButton } from "@/components/TelegramBroadcastButton";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,21 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
           )}
         </div>
       </div>
+
+      {notice.status === "published" && (
+        <div className="card p-4 flex flex-wrap items-center justify-between gap-4 bg-[var(--bg-accent)]">
+          <div>
+            <h3 className="font-semibold">Broadcast Alert</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">Send details + link to all Telegram users</p>
+            {notice.alertsSentAt && (
+              <p className="text-xs text-emerald-600 font-medium mt-1">
+                Last sent: {notice.alertsSentAt.toLocaleString("en-IN")}
+              </p>
+            )}
+          </div>
+          <TelegramBroadcastButton id={notice.id} alertsSentAt={notice.alertsSentAt} />
+        </div>
+      )}
 
       <ReviewForm defaults={defaults} id={notice.id} extractionMethod={notice.extractionMethod} />
 

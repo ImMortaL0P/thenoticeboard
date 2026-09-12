@@ -269,3 +269,74 @@ export async function updateOrganizationLogoAction(_: ActionState, form: FormDat
   revalidatePath("/");
   return { ok: true, message: "Logo updated successfully." };
 }
+
+export async function broadcastTelegramAction(_: ActionState, form: FormData): Promise<ActionState> {
+  const user = await requireStaff();
+  const id = String(form.get("id") ?? "");
+  if (!id) return { error: "Notice ID required." };
+
+  const notice = await prisma.notification.findUnique({
+    where: { id },
+    include: { organization: true },
+  });
+
+  if (!notice) return { error: "Notice not found." };
+  if (notice.status !== "published") return { error: "Notice must be published to broadcast." };
+
+  const users = await prisma.user.findMany({
+    where: {
+      telegramChatId: { not: null },
+      alertsEnabled: true,
+    },
+    select: { id: true, telegramChatId: true },
+  });
+
+  const channelId = process.env.TELEGRAM_CHANNEL_ID;
+  if (users.length === 0 && !channelId) return { error: "No users or channel configured for Telegram broadcast." };
+
+  const siteUrl = process.env.SITE_URL || "http://localhost:3000";
+  const url = `${siteUrl}/notice/${notice.id}`;
+  const orgName = notice.organization?.name ?? "Unknown Organization";
+
+  let msg = `📢 <b>${orgName}</b>\n\n`;
+  msg += `<b>${notice.title}</b>\n\n`;
+  if (notice.totalVacancies) msg += `<b>Vacancies:</b> ${notice.totalVacancies}\n`;
+  if (notice.applyLast) msg += `<b>Last Date:</b> ${notice.applyLast}\n`;
+  if (notice.minQualification && notice.minQualification !== 'any') msg += `<b>Qual:</b> ${notice.minQualification}\n`;
+  msg += `\n🔗 <a href="${url}">View details on thenoticeboard</a>`;
+
+  const { sendTelegramMessage } = await import("@/lib/telegram");
+
+  let successCount = 0;
+  
+  if (channelId) {
+    const res = await sendTelegramMessage(channelId, msg);
+    if (res.success) {
+      successCount++;
+    }
+  }
+
+  for (const u of users) {
+    if (u.telegramChatId) {
+      const res = await sendTelegramMessage(u.telegramChatId, msg);
+      if (res.success) {
+        successCount++;
+        // Log the alert
+        await prisma.alertLog.upsert({
+          where: { userId_notificationId_kind: { userId: u.id, notificationId: notice.id, kind: "manual_broadcast" } },
+          create: { userId: u.id, notificationId: notice.id, kind: "manual_broadcast", channel: "telegram" },
+          update: { sentAt: new Date() }
+        });
+      }
+    }
+  }
+
+  await prisma.notification.update({
+    where: { id },
+    data: { alertsSentAt: new Date() },
+  });
+
+  revalidatePath(`/admin/review/${id}`);
+
+  return { ok: true, message: `Broadcasted successfully to ${successCount} user(s).` };
+}
