@@ -119,6 +119,11 @@ export function NoticeCard({
             <span className="mt-1.5 max-w-[3.25rem] text-[9px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
               {deadlineLabel}
             </span>
+            {n.serialNumber != null && (
+              <span className="mt-1.5 text-[9px] font-mono font-bold leading-tight tracking-widest text-muted-foreground/70">
+                NB-{n.serialNumber}
+              </span>
+            )}
           </>
         ) : (
           <>
@@ -126,6 +131,11 @@ export function NoticeCard({
             <span className="text-[9px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
               {deadlineLabel}
             </span>
+            {n.serialNumber != null && (
+              <span className="mt-1.5 text-[9px] font-mono font-bold leading-tight tracking-widest text-muted-foreground/70">
+                NB-{n.serialNumber}
+              </span>
+            )}
           </>
         )}
       </div>
