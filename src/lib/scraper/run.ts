@@ -7,6 +7,7 @@ import type { Prisma, Source } from "@prisma/client";
 import { fetchHtml } from "./fetch";
 import { discoverLinks, type DiscoveredItem } from "./discover";
 import { autoExtract } from "./ai";
+import { getNextNotificationSerialNumber } from "../serial";
 
 export type SourceWithOrg = Prisma.SourceGetPayload<{ include: { organization: true } }>;
 export type RunResult = {
@@ -123,6 +124,7 @@ async function processDiscoveredLink(
 
   // It's a brand new notification
   const data: Prisma.NotificationUncheckedCreateInput = {
+    serialNumber: await getNextNotificationSerialNumber(),
     organizationId,
     title: draft.title ?? `${source.organization?.shortName ?? source.name} notice`,
     summary: draft.summary ?? undefined,

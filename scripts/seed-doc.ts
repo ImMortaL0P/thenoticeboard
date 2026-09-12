@@ -1,5 +1,6 @@
 import fs from "fs";
 import { prisma } from "../src/lib/db";
+import { getNextNotificationSerialNumber } from "../src/lib/serial";
 
 async function main() {
   const filePath = "/Users/mangalam/Downloads/government_job_notifications_india_2026.md";
@@ -109,6 +110,7 @@ async function main() {
       // Add Notification
       await prisma.notification.create({
         data: {
+          serialNumber: await getNextNotificationSerialNumber(),
           organizationId: org.id,
           title: title,
           sector: "central_govt", // simple default

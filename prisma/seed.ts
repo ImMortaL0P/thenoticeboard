@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { getNextNotificationSerialNumber } from "../src/lib/serial";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { SEED_NOTICES, SEED_ORGS, SEED_SOURCES, SEED_UPDATES } from "./seed-data";
@@ -42,6 +43,7 @@ async function main() {
       const org = SEED_ORGS.find((o) => o.shortName === n.org)!;
       await prisma.notification.create({
         data: {
+          serialNumber: await getNextNotificationSerialNumber(),
           organizationId,
           title: n.title,
           titleHi: n.titleHi,

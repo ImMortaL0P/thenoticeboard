@@ -1,3 +1,4 @@
+import { getNextNotificationSerialNumber } from "../src/lib/serial";
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 
@@ -213,7 +214,8 @@ async function main() {
      console.log(`Saving: ${item.title} ending ${item.applyLast}`);
      
      await prisma.notification.create({
-         data: {
+        data: {
+          serialNumber: await getNextNotificationSerialNumber(),
              title: item.title,
              summary: item.org ? `Recruitment by ${item.org}` : null,
              advertisementNo: item.advt,
