@@ -236,7 +236,10 @@ export function formatFee(value: number | null, freeLabel = "Free"): string {
 
 export function formatDate(value: string | null | undefined, lang = "en"): string {
   if (!value) return "n/a";
-  return new Date(`${value}T00:00:00Z`).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN", {
+  const dateStr = value.includes("T") ? value : `${value}T00:00:00Z`;
+  const dateObj = new Date(dateStr);
+  if (isNaN(dateObj.getTime())) return "Invalid Date";
+  return dateObj.toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",

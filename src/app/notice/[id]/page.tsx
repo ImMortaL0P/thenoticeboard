@@ -72,7 +72,7 @@ export default async function NoticePage({ params }: Props) {
 
       <header className="card space-y-4 p-5">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <OrgBadge name={n.organization?.name} shortName={n.organization?.shortName} />
+          <OrgBadge name={n.organization?.name} shortName={n.organization?.shortName} logoUrl={n.organization?.logoUrl} />
           <span className="font-semibold text-foreground">{n.organization?.name}</span>
           <Dot />
           <span>{t(`sector.${n.sector}`)}</span>
@@ -90,9 +90,20 @@ export default async function NoticePage({ params }: Props) {
         </dl>
         <div className="flex flex-wrap items-center gap-2">
           <span className={cn("chip", toneClasses[d.tone])}>{t(`status.${d.boardStatus === "closing_soon" ? "closingSoon" : d.boardStatus}`)}</span>
-          <span className="inline-flex items-center gap-1 text-xs text-verified">
-            <BadgeCheck className="size-3.5" /> {t("card.verifiedFrom", { source: hostOf(n.officialSourceUrl) })}
-          </span>
+          {(() => {
+            const sourceLink = n.officialSourceUrl ?? n.organization?.officialWebsite;
+            return sourceLink ? (
+              <a href={sourceLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-verified hover:underline">
+                <BadgeCheck className="size-3.5" />
+                {t("card.verifiedFrom", { source: hostOf(sourceLink) })}
+              </a>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs text-verified">
+                <BadgeCheck className="size-3.5" />
+                {t("card.verifiedFrom", { source: hostOf(sourceLink) })}
+              </span>
+            );
+          })()}
         </div>
         <div className="flex flex-wrap gap-2">
           {n.officialNotificationPdfUrl && (
@@ -240,11 +251,11 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OrgBadge({ name, shortName }: { name?: string | null; shortName?: string | null }) {
+function OrgBadge({ name, shortName, logoUrl }: { name?: string | null; shortName?: string | null; logoUrl?: string | null }) {
   const base = (shortName ?? name ?? "N").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "N";
   return (
-    <span className="avatar bg-accent text-primary" aria-hidden>
-      {base}
+    <span className={cn("avatar overflow-hidden", !logoUrl && "bg-accent text-primary")} aria-hidden>
+      {logoUrl ? <img src={logoUrl} alt={shortName ?? name ?? "Logo"} className="size-full object-contain bg-white" /> : base}
     </span>
   );
 }

@@ -133,8 +133,12 @@ export function NoticeCard({
       <div className="min-w-0">
         {/* Org identity + status chips */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className={cn("avatar", tintFor(orgKey), feature ? "size-9 sm:size-10" : "size-8 sm:size-9")}>
-            {monogramOf(orgKey)}
+          <span className={cn("avatar overflow-hidden", !n.organization?.logoUrl && tintFor(orgKey), feature ? "size-9 sm:size-10" : "size-8 sm:size-9")}>
+            {n.organization?.logoUrl ? (
+              <img src={n.organization.logoUrl} alt={orgKey} className="size-full object-contain bg-white" />
+            ) : (
+              monogramOf(orgKey)
+            )}
           </span>
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs font-medium text-muted-foreground">
             <span className="font-semibold text-foreground">
@@ -175,10 +179,23 @@ export function NoticeCard({
         </dl>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-[11px]">
-          <span className="inline-flex items-center gap-1 font-medium text-verified">
-            <BadgeCheck className="size-3.5" />
-            {t("card.verifiedFrom", { source: hostOf(n.officialSourceUrl ?? n.organization?.officialWebsite) })}
-          </span>
+          {n.officialSourceUrl ?? n.organization?.officialWebsite ? (
+            <a
+              href={n.officialSourceUrl ?? n.organization?.officialWebsite!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative z-10 inline-flex items-center gap-1 font-medium text-verified hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <BadgeCheck className="size-3.5" />
+              {t("card.verifiedFrom", { source: hostOf(n.officialSourceUrl ?? n.organization?.officialWebsite) })}
+            </a>
+          ) : (
+            <span className="inline-flex items-center gap-1 font-medium text-verified">
+              <BadgeCheck className="size-3.5" />
+              {t("card.verifiedFrom", { source: hostOf(n.officialSourceUrl ?? n.organization?.officialWebsite) })}
+            </span>
+          )}
           <span className="inline-flex items-center gap-2">
             {elig && (
               <span

@@ -200,11 +200,14 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
         <div className="relative grid items-center gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12 lg:py-10">
           <div className="space-y-4">
             <span className="kicker-pill">{t("home.kicker")}</span>
-            <h1 className="max-w-2xl text-4xl font-black leading-[1.05] tracking-tighter sm:text-5xl lg:text-[3.25rem]">
-              {t("home.heroLead")}
-              <br />
-              <span className="highlight-ink text-primary">{t("home.heroAccent")}</span>
-            </h1>
+            <div className="flex items-start gap-4 sm:gap-6">
+              <img src="/brand/symbol.png" alt="thenoticeboard symbol" className="size-16 sm:size-[4.5rem] lg:size-[6.5rem] xl:size-[7.5rem] object-contain dark:contrast-125 dark:brightness-110 shrink-0 select-none" />
+              <h1 className="max-w-2xl text-4xl font-black leading-[1.05] tracking-tighter sm:text-5xl lg:text-[3.25rem]">
+                {t("home.heroLead")}
+                <br />
+                <span className="highlight-ink text-primary">{t("home.heroAccent")}</span>
+              </h1>
+            </div>
             <p className="max-w-xl text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">
               {t("home.heroSub")}
             </p>

@@ -232,3 +232,40 @@ export async function runAllSourcesAction(_: ActionState, form: FormData): Promi
   
   return { ok: true, message: `Scraping started in background for ${sources.length} active sources. Check Runs tab in a few minutes.` };
 }
+
+export async function updateOrganizationLogoAction(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = String(form.get("id") ?? "");
+  const logoUrlParam = String(form.get("logoUrl") ?? "").trim();
+  const file = form.get("logoFile") as File | null;
+
+  if (!id) return { error: "Organization ID required." };
+
+  let finalLogoUrl = logoUrlParam || null;
+
+  if (file && file.size > 0 && file.name) {
+    const ext = file.name.split('.').pop() || 'png';
+    const filename = `${id}.${ext}`;
+
+    const { writeFile, mkdir } = await import("fs/promises");
+    const path = await import("path");
+
+    const dir = path.join(process.cwd(), "public", "logos");
+    await mkdir(dir, { recursive: true });
+
+    const filePath = path.join(dir, filename);
+    const bytes = await file.arrayBuffer();
+    await writeFile(filePath, Buffer.from(bytes));
+
+    finalLogoUrl = `/logos/${filename}`;
+  }
+
+  await prisma.organization.update({
+    where: { id },
+    data: { logoUrl: finalLogoUrl },
+  });
+
+  revalidatePath("/admin/organizations");
+  revalidatePath("/");
+  return { ok: true, message: "Logo updated successfully." };
+}

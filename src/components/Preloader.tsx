@@ -9,6 +9,7 @@ export function Preloader({ children }: { children: React.ReactNode }) {
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
+    // Only block scrolling while preloader is active
     document.body.style.overflow = "hidden";
 
     let current = 0;
@@ -24,24 +25,15 @@ export function Preloader({ children }: { children: React.ReactNode }) {
           setTimeout(() => {
             setLoading(false);
             document.body.style.overflow = "";
-          }, 300);
-        }, 100);
+          }, 400); // Wait for fade transition
+        }, 150);
       } else {
         setProgress(current);
       }
     }, 60);
 
-    const failsafe = setTimeout(() => {
-      setFading(true);
-      setTimeout(() => {
-        setLoading(false);
-        document.body.style.overflow = "";
-      }, 300);
-    }, 2500);
-
     return () => {
       clearInterval(interval);
-      clearTimeout(failsafe);
       document.body.style.overflow = "";
     };
   }, []);
@@ -71,20 +63,6 @@ export function Preloader({ children }: { children: React.ReactNode }) {
               Loading Notices
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-               setFading(true);
-               setTimeout(() => {
-                 setLoading(false);
-                 document.body.style.overflow = "";
-               }, 250);
-            }}
-            className="absolute bottom-10 z-[101] p-4 text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            Skip
-          </button>
         </div>
       )}
 

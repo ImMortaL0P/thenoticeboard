@@ -21,6 +21,7 @@ const links: LinkDef[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/review", label: "Review queue", icon: ClipboardCheck, badge: "pendingCount" },
   { href: "/admin/sources", label: "Sources", icon: Database },
+  { href: "/admin/organizations", label: "Organizations", icon: Users },
   { href: "/admin/runs", label: "Scrape runs", icon: Activity },
 ];
 
@@ -33,7 +34,7 @@ export function AdminNav({ pendingCount, role, userLabel }: Props) {
         Admin
       </div>
       {links.map((l) => {
-        if (l.href === "/admin/sources" && role !== "admin") return null;
+        if ((l.href === "/admin/sources" || l.href === "/admin/organizations") && role !== "admin") return null;
         const active =
           l.href === "/admin" ? path === "/admin" : path.startsWith(l.href);
         const badge = l.badge ? badges[l.badge] : undefined;
