@@ -208,7 +208,7 @@ export function Calendar({ notices, savedIds, hasUser }: { notices: Notice[]; sa
           </div>
 
           {/* Day grid */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-2">
             {grid.map((d, i) => {
               const k = dayKey(d);
               const evts = k ? onDay(k) : [];
@@ -223,18 +223,44 @@ export function Calendar({ notices, savedIds, hasUser }: { notices: Notice[]; sa
                   onClick={() => setSelectedDay(k)}
                   aria-label={k}
                   className={cn(
-                    "relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-sm transition-colors duration-150",
-                    isToday && "font-bold text-primary",
-                    isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted",
+                    "relative flex min-h-[3.5rem] flex-col rounded-xl border p-1 text-left transition-all duration-200 sm:min-h-[5.5rem] sm:p-2",
+                    isToday ? "border-primary/40 bg-primary/5" : "border-border/60 bg-card hover:border-border hover:bg-muted/40",
+                    isSelected && !isToday && "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/20 scale-[1.02]",
                   )}
                 >
-                  {d}
-                  <span className="flex h-1.5 items-center gap-0.5">
-                    {evts.slice(0, 3).map((e) => (
-                      <span key={e.id} className={cn("size-1.5 rounded-full", e.dot)} />
-                    ))}
-                    {evts.length > 3 && <span className="text-[9px] leading-none text-muted-foreground">+{evts.length - 3}</span>}
+                  <span
+                    className={cn(
+                      "mb-1 block text-xs font-semibold sm:text-sm",
+                      isToday ? "text-primary" : "text-foreground"
+                    )}
+                  >
+                    {d}
                   </span>
+
+                  {/* Desktop detailed view inside cells */}
+                  <div className="mt-auto hidden w-full flex-col gap-1 sm:flex">
+                    {evts.slice(0, 3).map((e) => (
+                      <div key={e.id} className="flex w-full items-center gap-1 overflow-hidden" title={`${e.label}: ${e.org || e.title}`}>
+                        <span className={cn("size-1.5 shrink-0 rounded-full", e.dot)} />
+                        <span className={cn("truncate text-[10px] font-medium leading-tight", e.tone)}>
+                          {e.org || e.label}
+                        </span>
+                      </div>
+                    ))}
+                    {evts.length > 3 && (
+                      <span className="pl-2.5 text-[9px] font-bold text-muted-foreground">+{evts.length - 3} more</span>
+                    )}
+                  </div>
+
+                  {/* Mobile minimalist dots */}
+                  <div className="mt-auto flex w-full flex-wrap items-center justify-start gap-1 pb-0.5 sm:hidden">
+                    {evts.slice(0, 3).map((e) => (
+                      <span key={e.id} className={cn("size-[5px] rounded-full", e.dot)} />
+                    ))}
+                    {evts.length > 3 && (
+                      <span className="text-[9px] font-bold leading-none text-muted-foreground">+{evts.length - 3}</span>
+                    )}
+                  </div>
                 </button>
               );
             })}

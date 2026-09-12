@@ -94,7 +94,7 @@ async function run() {
     }
     console.log(`\n--- Processing ID: ${n.id} [${n.officialSourceUrl}] ---`);
     try {
-      const draft = await callGemini(n.rawText, n.officialSourceUrl);
+      const draft = await callGemini(n.rawText, n.officialSourceUrl ?? "");
       console.log(`AI title: ${draft.title} | Org: ${draft.organizationName}`);
       console.log(`PDF: ${draft.pdfUrl} | Apply: ${draft.applyUrl}`);
 
@@ -125,7 +125,7 @@ async function run() {
       let finalPdfUrl = n.officialNotificationPdfUrl;
       let finalApplyUrl = n.applyUrl;
 
-      if (n.officialSourceUrl.toLowerCase().includes('.pdf')) {
+      if (n.officialSourceUrl?.toLowerCase().includes('.pdf')) {
          finalPdfUrl = n.officialSourceUrl;
       } else if (draft.pdfUrl && draft.pdfUrl.startsWith('http')) {
          finalPdfUrl = draft.pdfUrl;
