@@ -21,8 +21,8 @@ Extract the following exact fields as JSON. For missing fields write null.
 IMPORTANT: RESPOND ONLY WITH RAW JSON. NO MARKDOWN. NO CODE BLOCKS. JUST VALID JSON.`;
 
 async function callGemini(key: string, text: string): Promise<NoticeDraft> {
-  // Gemini 1.5 Flash via REST API (which supports 1M context, we send ~10k chars)
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+  // Gemini latest model via REST API
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
