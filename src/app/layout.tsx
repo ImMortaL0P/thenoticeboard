@@ -7,6 +7,7 @@ import { I18nProvider } from "@/components/I18nProvider";
 import { getLang } from "@/lib/i18n-server";
 
 import { Preloader } from "@/components/Preloader";
+import { SmoothScroll } from "@/components/SmoothScroll";
 
 const instrument = Instrument_Sans({
   subsets: ["latin"],
@@ -45,6 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-screen antialiased">
+        <SmoothScroll />
         <I18nProvider lang={lang}>
           <Preloader>
             <Header />
