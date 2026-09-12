@@ -199,12 +199,12 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
         <div className="relative grid items-center gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12 lg:py-10">
           <div className="space-y-4">
             <span className="kicker-pill">{t("home.kicker")}</span>
-            <h1 className="max-w-2xl text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl lg:text-[2.6rem]">
+            <h1 className="max-w-2xl text-4xl font-black leading-[1.05] tracking-tighter sm:text-5xl lg:text-[3.25rem]">
               {t("home.heroLead")}
               <br />
               <span className="highlight-ink text-primary">{t("home.heroAccent")}</span>
             </h1>
-            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            <p className="max-w-xl text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">
               {t("home.heroSub")}
             </p>
             <div className="flex flex-wrap items-end gap-x-8 gap-y-3 pt-2">

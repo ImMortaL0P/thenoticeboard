@@ -152,8 +152,8 @@ export function NoticeCard({
 
         <h3
           className={cn(
-            "mt-2 line-clamp-2 font-semibold leading-snug tracking-tight",
-            feature ? "text-base sm:text-lg" : "text-[15px] sm:text-base",
+            "mt-2 line-clamp-2 font-extrabold leading-snug tracking-tighter",
+            feature ? "text-lg sm:text-xl" : "text-base sm:text-lg",
           )}
         >
           <Link href={`/notice/${n.id}`} className="after:absolute after:inset-0 group-hover:text-primary">

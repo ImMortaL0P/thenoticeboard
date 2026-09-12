@@ -6,6 +6,8 @@ import { Footer } from "@/components/Footer";
 import { I18nProvider } from "@/components/I18nProvider";
 import { getLang } from "@/lib/i18n-server";
 
+import { Preloader } from "@/components/Preloader";
+
 const instrument = Instrument_Sans({
   subsets: ["latin"],
   variable: "--font-instrument",
@@ -44,9 +46,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="min-h-screen antialiased">
         <I18nProvider lang={lang}>
-          <Header />
-          <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
-          <Footer />
+          <Preloader>
+            <Header />
+            <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+            <Footer />
+          </Preloader>
         </I18nProvider>
       </body>
     </html>
