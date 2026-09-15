@@ -9,16 +9,16 @@ import { logoutAction } from "@/app/(auth)/actions";
 export async function Header() {
   const [{ t }, user] = await Promise.all([getT(), getCurrentUser()]);
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <Link href="/" aria-label="thenoticeboard home">
+    <header className="sticky top-0 z-40 border-b border-foreground bg-background/95 backdrop-blur-sm">
+      <div className="mx-auto flex h-14 max-w-[78rem] items-center gap-6 px-4 sm:px-6">
+        <Link href="/" aria-label="thenoticeboard home" className="shrink-0">
           <Logo />
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
           <NavLinks
             admin={
               isStaff(user?.role) ? (
-                <Link href="/admin" className="btn btn-ghost btn-sm font-medium text-primary">
+                <Link href="/admin" className="btn btn-ghost btn-sm">
                   {t("nav.admin")}
                 </Link>
               ) : undefined
@@ -29,7 +29,7 @@ export async function Header() {
           <HeaderControls />
           {user ? (
             <>
-              <Link href="/profile" className="btn btn-outline btn-sm">
+              <Link href="/profile" className="btn btn-ghost btn-sm">
                 {t("nav.profile")}
               </Link>
               <form action={logoutAction}>

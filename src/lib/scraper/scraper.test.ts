@@ -32,7 +32,9 @@ function expectEqual(label: string, got: unknown, want: unknown): void {
 }
 
 const en = extractFromText(EN, "Clerk Recruitment");
-expectEqual("en.title", en.title, "Railway Recruitment Cell, Northern Railway");
+// The heading of the notice, not the office that issued it. The old expectation
+// ("Railway Recruitment Cell, Northern Railway") was the letterhead.
+expectEqual("en.title", en.title, "RECRUITMENT OF GROUP C STAFF");
 expectEqual("en.advtNo", en.advertisementNo, "01/2026");
 expectEqual("en.vacancies", en.totalVacancies, 1245);
 expectEqual("en.qual", en.minQualification, "12th");

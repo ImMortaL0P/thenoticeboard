@@ -3,20 +3,34 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * thenoticeboard design system (tokens carried over from the Lovable build)
- * Deep navy/indigo primary, information-dense cards, urgency colour scale.
- * All colours are oklch semantic tokens. Never hardcode colours in components.
+ * thenoticeboard — editorial design system.
+ *
+ * Principle: this is a register of public record, not a product landing page.
+ * Ink on paper, hairline rules, typographic hierarchy instead of boxes and
+ * shadows. Never hardcode colours — use the tokens below.
+ *
+ * The palette is taken from the wordmark, which uses exactly two colours:
+ *   #151F31  oklch(0.239 0.038 262)  deep navy — the ink
+ *   #4266B0  oklch(0.520 0.124 263)  blue      — the brand
+ * Both sit at hue ~262, so every neutral is tinted to that same hue and the
+ * page reads as one family rather than as grey with a blue logo dropped on it.
+ *
+ * Two accents, and the split is semantic, not decorative:
+ *   BLUE is brand and interaction — emphasis, links, active tabs, hover.
+ *   RED is urgency only — a closing deadline, nothing else. If brand blue crept
+ *   into the deadline treatment, "1 day left" would stop reading as a warning.
  */
 
 @theme inline {
-  --font-sans: var(--font-karla), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: var(--font-montserrat), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), var(--font-devanagari), "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-newsreader), var(--font-devanagari-serif), "Noto Serif Devanagari", ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 6px;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -64,106 +78,118 @@
   --color-ev-admit: var(--verified);
   --color-ev-result: var(--open);
 
-  --shadow-card: 0 0 0 1px oklch(0.3 0.02 262 / 0.02), 0 1px 2px oklch(0.3 0.02 262 / 0.05);
-  --shadow-lift: 0 10px 24px -12px oklch(0.28 0.03 262 / 0.16);
-  --shadow-pop: 0 22px 48px -20px oklch(0.28 0.03 262 / 0.24);
+  /* Shadows are near-absent by design; rules carry structure instead. */
+  --shadow-card: none;
+  --shadow-lift: 0 1px 0 var(--border);
+  --shadow-pop: 0 12px 32px -18px oklch(0.2 0.01 265 / 0.30);
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 3px;
 
-  /* Pure-bright light default: white canvas, hairline structure, pastel accents. */
-  --background: oklch(0.997 0.0015 255);
-  --foreground: oklch(0.235 0.032 258);
-  --surface: oklch(0.99 0.002 255);
-  --surface-foreground: oklch(0.36 0.026 258);
+  /* ---- Motion ----------------------------------------------------------
+   * One easing curve for almost everything, so the whole interface decelerates
+   * the same way. --ease-exit is the mirror, used only for things leaving.
+   * Durations are short on purpose: this is a reference tool, not a showreel. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: cubic-bezier(0.55, 0, 0.35, 1);
+  --dur-fast: 110ms;
+  --dur: 190ms;
+  --dur-slow: 340ms;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.032 258);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.032 258);
+  /* Cool paper, wordmark navy as the ink. Every neutral carries hue 262. */
+  --background: oklch(0.986 0.004 262);
+  --foreground: oklch(0.239 0.038 262);
+  --surface: oklch(0.963 0.008 262);
+  --surface-foreground: oklch(0.36 0.026 262);
 
-  --primary: oklch(0.43 0.125 258);
-  --primary-foreground: oklch(0.99 0.002 255);
-  --brand: oklch(0.37 0.105 258);
-  --brand-foreground: oklch(0.99 0.002 255);
+  --card: oklch(0.996 0.003 262);
+  --card-foreground: oklch(0.239 0.038 262);
+  --popover: oklch(0.996 0.003 262);
+  --popover-foreground: oklch(0.239 0.038 262);
 
-  --secondary: oklch(0.963 0.011 255);
-  --secondary-foreground: oklch(0.38 0.07 258);
-  --muted: oklch(0.968 0.0055 255);
-  --muted-foreground: oklch(0.505 0.028 258);
-  --accent: oklch(0.935 0.028 258);
-  --accent-foreground: oklch(0.34 0.09 258);
+  /* The wordmark blue. Brand and every interactive affordance. */
+  --primary: oklch(0.520 0.124 263);
+  --primary-foreground: oklch(0.986 0.004 262);
+  --brand: oklch(0.520 0.124 263);
+  --brand-foreground: oklch(0.986 0.004 262);
 
-  --destructive: oklch(0.61 0.2 25);
-  --destructive-foreground: oklch(0.99 0.005 255);
+  --secondary: oklch(0.945 0.010 262);
+  --secondary-foreground: oklch(0.32 0.030 262);
+  --muted: oklch(0.955 0.008 262);
+  --muted-foreground: oklch(0.505 0.022 262);
+  --accent: oklch(0.928 0.030 262);
+  --accent-foreground: oklch(0.36 0.080 262);
 
-  --border: oklch(0.925 0.008 255);
-  --input: oklch(0.915 0.009 255);
-  --ring: oklch(0.6 0.11 258);
+  --destructive: oklch(0.505 0.185 27);
+  --destructive-foreground: oklch(0.99 0.005 262);
 
-  /* Pastel status hues — soft tints for surfaces, readable tones for text. */
-  --verified: oklch(0.57 0.1 172);
-  --verified-foreground: oklch(0.99 0.005 170);
-  --urgent: oklch(0.66 0.16 26);
-  --urgent-foreground: oklch(0.99 0.01 30);
-  --urgent-soft: oklch(0.965 0.03 25);
-  --warn: oklch(0.68 0.125 80);
-  --warn-foreground: oklch(0.3 0.055 78);
-  --warn-soft: oklch(0.972 0.04 88);
-  --open: oklch(0.6 0.11 158);
-  --open-foreground: oklch(0.99 0.01 150);
-  --open-soft: oklch(0.965 0.032 160);
-  --neutral: oklch(0.58 0.012 255);
-  --neutral-foreground: oklch(0.99 0.002 255);
-  --neutral-soft: oklch(0.955 0.007 255);
+  --border: oklch(0.882 0.011 262);
+  --input: oklch(0.838 0.014 262);
+  --ring: oklch(0.520 0.124 263);
+
+  /* Status. Red is reserved for deadline urgency and nothing else. */
+  --verified: oklch(0.465 0.085 158);
+  --verified-foreground: oklch(0.99 0.005 158);
+  --urgent: oklch(0.505 0.185 27);
+  --urgent-foreground: oklch(0.99 0.008 30);
+  --urgent-soft: oklch(0.957 0.028 32);
+  --warn: oklch(0.565 0.105 68);
+  --warn-foreground: oklch(0.37 0.080 62);
+  --warn-soft: oklch(0.960 0.032 78);
+  --open: oklch(0.465 0.085 158);
+  --open-foreground: oklch(0.99 0.008 150);
+  --open-soft: oklch(0.957 0.026 160);
+  --neutral: oklch(0.505 0.022 262);
+  --neutral-foreground: oklch(0.99 0.003 262);
+  --neutral-soft: oklch(0.945 0.010 262);
 }
 
 .dark {
-  --background: oklch(0.17 0.025 258);
-  --foreground: oklch(0.95 0.008 260);
-  --surface: oklch(0.21 0.03 258);
-  --surface-foreground: oklch(0.9 0.01 260);
+  /* The wordmark navy becomes the canvas; the blue lifts to stay legible on it. */
+  --background: oklch(0.175 0.025 262);
+  --foreground: oklch(0.935 0.010 262);
+  --surface: oklch(0.215 0.030 262);
+  --surface-foreground: oklch(0.87 0.012 262);
 
-  --card: oklch(0.215 0.03 258);
-  --card-foreground: oklch(0.95 0.008 260);
-  --popover: oklch(0.215 0.03 258);
-  --popover-foreground: oklch(0.95 0.008 260);
+  --card: oklch(0.203 0.028 262);
+  --card-foreground: oklch(0.935 0.010 262);
+  --popover: oklch(0.203 0.028 262);
+  --popover-foreground: oklch(0.935 0.010 262);
 
-  --primary: oklch(0.68 0.14 258);
-  --primary-foreground: oklch(0.16 0.03 258);
-  --brand: oklch(0.72 0.13 258);
-  --brand-foreground: oklch(0.16 0.03 258);
+  --primary: oklch(0.715 0.120 263);
+  --primary-foreground: oklch(0.175 0.025 262);
+  --brand: oklch(0.715 0.120 263);
+  --brand-foreground: oklch(0.175 0.025 262);
 
-  --secondary: oklch(0.27 0.035 258);
-  --secondary-foreground: oklch(0.93 0.01 260);
-  --muted: oklch(0.26 0.03 258);
-  --muted-foreground: oklch(0.68 0.02 260);
-  --accent: oklch(0.3 0.05 258);
-  --accent-foreground: oklch(0.95 0.01 260);
+  --secondary: oklch(0.262 0.032 262);
+  --secondary-foreground: oklch(0.91 0.010 262);
+  --muted: oklch(0.248 0.030 262);
+  --muted-foreground: oklch(0.672 0.024 262);
+  --accent: oklch(0.300 0.050 262);
+  --accent-foreground: oklch(0.92 0.030 262);
 
-  --destructive: oklch(0.62 0.19 25);
-  --destructive-foreground: oklch(0.98 0.01 30);
+  --destructive: oklch(0.66 0.185 27);
+  --destructive-foreground: oklch(0.97 0.01 30);
 
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.6 0.12 258);
+  --border: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 21%);
+  --ring: oklch(0.715 0.120 263);
 
-  --verified: oklch(0.68 0.12 172);
-  --verified-foreground: oklch(0.16 0.03 170);
-
-  --urgent: oklch(0.65 0.19 26);
-  --urgent-foreground: oklch(0.16 0.03 25);
-  --urgent-soft: oklch(0.31 0.08 25);
-  --warn: oklch(0.75 0.14 78);
-  --warn-foreground: oklch(0.93 0.04 80);
-  --warn-soft: oklch(0.32 0.06 80);
-  --open: oklch(0.68 0.13 155);
-  --open-foreground: oklch(0.16 0.03 150);
-  --open-soft: oklch(0.29 0.06 155);
-  --neutral: oklch(0.6 0.015 260);
-  --neutral-foreground: oklch(0.16 0.02 260);
-  --neutral-soft: oklch(0.28 0.02 260);
+  --verified: oklch(0.70 0.11 158);
+  --verified-foreground: oklch(0.175 0.02 158);
+  --urgent: oklch(0.685 0.180 27);
+  --urgent-foreground: oklch(0.175 0.02 27);
+  --urgent-soft: oklch(0.30 0.075 28);
+  --warn: oklch(0.75 0.12 72);
+  --warn-foreground: oklch(0.88 0.06 75);
+  --warn-soft: oklch(0.29 0.055 72);
+  --open: oklch(0.70 0.11 158);
+  --open-foreground: oklch(0.175 0.02 150);
+  --open-soft: oklch(0.27 0.05 158);
+  --neutral: oklch(0.62 0.022 262);
+  --neutral-foreground: oklch(0.175 0.02 262);
+  --neutral-soft: oklch(0.262 0.028 262);
 }
 
 @layer base {
@@ -174,6 +200,7 @@
     -webkit-text-size-adjust: 100%;
     color-scheme: light;
     overflow-x: clip;
+    scrollbar-gutter: stable;
     scroll-behavior: smooth;
   }
   html.dark {
@@ -183,215 +210,237 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "cv02", "cv03", "cv04", "tnum";
-    line-height: 1.5;
+    font-feature-settings: "tnum", "cv05";
+    font-size: 15px;
+    line-height: 1.55;
     text-rendering: optimizeLegibility;
-    transition: background-color 0.3s ease, color 0.3s ease;
   }
-  html {
-    scrollbar-gutter: stable;
-  }
-  h1,
-  h2,
-  h3,
-  h4 {
+  /* Serif display, set tight and dark — the newspaper headline voice. */
+  h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.04em;
-    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    line-height: 1.12;
     text-wrap: balance;
-    font-weight: 800;
   }
-  h5,
-  h6 {
-    font-family: var(--font-display);
-    letter-spacing: -0.02em;
+  h5, h6 {
+    font-family: var(--font-sans);
+    font-weight: 650;
+    letter-spacing: -0.005em;
     line-height: 1.3;
-    font-weight: 700;
   }
   p {
     text-wrap: pretty;
   }
   ::selection {
-    background: color-mix(in oklch, var(--color-accent) 65%, transparent);
+    background: color-mix(in oklch, var(--color-urgent) 22%, transparent);
   }
   :lang(hi) body {
-    line-height: 1.65;
+    line-height: 1.7;
   }
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--color-ring);
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 1px;
   }
   :where([id]) {
-    scroll-margin-top: 6.5rem;
-  }
-}
-
-/* Smooth, subtle motion — ease in/out only, never at the expense of readability. */
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
+    scroll-margin-top: 6rem;
   }
 }
 
 @layer components {
-  .stagger-row {
-    opacity: 0;
-    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  /* ---- Editorial furniture ---------------------------------------------- */
+
+  /* A masthead rule: thick over thin, the way a paper separates the flag. */
+  .rule-masthead {
+    border-top: 2px solid var(--color-foreground);
+    box-shadow: 0 3px 0 -2px var(--color-border);
   }
-  .sheet-mask {
-    transition: opacity 0.22s ease;
+
+  /* All-caps metadata label. Used for column heads and section eyebrows. */
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
   }
-  .sheet-panel {
-    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+
+  /* The dateline strip under the masthead. */
+  .dateline {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
   }
-  .hero-wash {
+
+  /* ---- Register rows ----------------------------------------------------
+   * Hairline-separated entries. On hover the paper warms and a red rule wipes
+   * in from the left — the whole feedback is colour and a 2px bar, never a
+   * jump, so a fast pointer moving down the list doesn't make the page twitch. */
+  .register {
+    border-top: 1px solid var(--color-foreground);
+  }
+  .register > * + * {
+    border-top: 1px solid var(--color-border);
+  }
+  .register-row {
+    transition: background-color var(--dur) var(--ease);
+  }
+  .register-row::before {
+    content: "";
     position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(58rem 24rem at 16% -12%, color-mix(in oklch, var(--color-accent) 60%, transparent), transparent 72%),
-      radial-gradient(48rem 22rem at 84% -26%, color-mix(in oklch, var(--color-open-soft) 80%, transparent), transparent 72%);
+    left: 0;
+    top: -1px;
+    bottom: -1px;
+    width: 2px;
+    background: var(--color-primary);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform var(--dur) var(--ease);
   }
+  .register-row:hover {
+    background-color: color-mix(in oklch, var(--color-surface) 75%, transparent);
+  }
+  .register-row:hover::before,
+  .register-row:focus-within::before {
+    transform: scaleY(1);
+  }
+  .register-row:active {
+    background-color: color-mix(in oklch, var(--color-surface) 100%, transparent);
+  }
+
+  /* Drop-cap style number for the deadline gutter. */
+  .day-figure {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-variant-numeric: lining-nums tabular-nums;
+    letter-spacing: -0.03em;
+    line-height: 0.9;
+    transition: color var(--dur) var(--ease);
+  }
+
+  /* An underline that grows from the left rather than blinking on. */
+  .link-rule {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    transition: background-size var(--dur) var(--ease);
+    padding-bottom: 1px;
+  }
+  .link-rule:hover,
+  .link-rule:focus-visible {
+    background-size: 100% 1px;
+  }
+
+  /* Section panels on detail pages: rules, not boxes. */
+  .panel {
+    border-top: 1px solid var(--color-foreground);
+    padding-top: 0.875rem;
+  }
+  .panel-head {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
+    margin-bottom: 0.75rem;
+  }
+
+  /* Organisation mark — fixed box so an unconstrained logo can never blow out
+   * the layout, whatever aspect ratio the source image happens to have. */
+  .orgmark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    overflow: hidden;
+    border-radius: 2px;
+    background: var(--color-muted);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--color-muted-foreground);
+    line-height: 1;
+  }
+  .orgmark > img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: white;
+  }
+  .orgmark-sm { width: 1.25rem; height: 1.25rem; font-size: 8px; }
+  .orgmark-md { width: 2.25rem; height: 2.25rem; font-size: 11px; }
+  .orgmark-lg { width: 3rem;    height: 3rem;    font-size: 13px; }
+
   .content-view {
     content-visibility: auto;
-    contain-intrinsic-size: auto 9.5rem;
+    contain-intrinsic-size: auto 7rem;
   }
 
-  /* Modern surface language: frosted panels, lift-on-hover cards, avatar monograms. */
-  .glass-panel {
-    position: relative;
-    border: 1px solid color-mix(in oklch, var(--color-primary) 16%, var(--color-border));
-    background: color-mix(in oklch, var(--color-card) 88%, transparent);
-    backdrop-filter: blur(14px) saturate(1.12);
-    -webkit-backdrop-filter: blur(14px) saturate(1.12);
-    box-shadow:
-      inset 0 1px 0 color-mix(in oklch, white 70%, transparent),
-      var(--shadow-card);
-  }
-  :where(.dark) .glass-panel {
-    border-color: color-mix(in oklch, var(--color-primary) 26%, var(--color-border));
-    background: color-mix(in oklch, var(--color-card) 76%, transparent);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.08),
-      var(--shadow-card);
-  }
-  @media (prefers-reduced-transparency: reduce) {
-    .glass-panel {
-      background: var(--color-card);
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-    }
-  }
-
-  .card-lift {
-    transition:
-      transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 180ms ease,
-      border-color 180ms ease;
-    will-change: transform;
-  }
-  .card-lift:hover {
-    transform: translateY(-2px);
-    border-color: color-mix(in oklch, var(--color-primary) 30%, var(--color-border));
-    box-shadow: var(--shadow-lift);
-  }
-
-  .avatar {
-    @apply inline-flex size-9 shrink-0 items-center justify-center rounded-xl font-display text-xs font-bold tracking-wide;
-  }
-
-  .dot-grid {
-    background-image: radial-gradient(
-      color-mix(in oklch, var(--color-primary) 16%, transparent) 1px,
-      transparent 1px
-    );
-    background-size: 20px 20px;
-  }
-
-  .highlight-ink {
-    border-radius: 0.3em;
-    padding: 0 0.12em;
-    background: linear-gradient(
-      transparent 60%,
-      color-mix(in oklch, var(--color-open-soft) 92%, transparent) 60%
-    );
-    box-decoration-break: clone;
-    -webkit-box-decoration-break: clone;
-  }
-
-  .kicker-pill {
-    @apply inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/25 bg-accent/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary;
-  }
-
-  /* Slim, theme-aware scrollbar for horizontal utility strips. */
-  .scroll-x-thin {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklch, var(--color-foreground) 22%, transparent) transparent;
-  }
-  .scroll-x-thin::-webkit-scrollbar {
-    height: 6px;
-  }
-  .scroll-x-thin::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: color-mix(in oklch, var(--color-foreground) 22%, transparent);
-  }
-  .scroll-x-thin::-webkit-scrollbar-track {
-    background: transparent;
+  /* One short settle on first paint. Not a per-row stagger — those read as
+   * decoration and delay the content the visitor actually came for. */
+  .page-enter {
+    animation: settle var(--dur-slow) var(--ease) both;
   }
 }
 
-@layer base {
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      animation-delay: 0ms !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
+@keyframes settle {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
 }
 
 @utility fact-label {
-  font-size: 0.6875rem;
-  line-height: 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.625rem;
+  line-height: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-muted-foreground);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 @utility fact-value {
   font-size: 0.8125rem;
   line-height: 1.15rem;
-  font-weight: 800;
+  font-weight: 550;
   color: var(--color-foreground);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Small component primitives (no UI library needed) */
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-bold tracking-tight transition-[color,background-color,border-color,box-shadow,transform] duration-150 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-1.5 rounded-sm px-3.5 py-2 text-[13px] font-semibold tracking-tight disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
+    transition:
+      background-color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease),
+      color var(--dur) var(--ease),
+      transform var(--dur-fast) var(--ease-exit),
+      opacity var(--dur) var(--ease);
+  }
+  /* Press feedback: a small, fast compression that releases on the slower curve. */
+  .btn:active:not(:disabled) {
+    transform: scale(0.975);
+    transition-duration: var(--dur-fast);
+  }
+  .btn > svg {
+    transition: transform var(--dur) var(--ease);
   }
   .btn-primary {
-    @apply bg-foreground text-background shadow-[var(--shadow-card)] hover:bg-foreground/90 hover:shadow-[var(--shadow-lift)];
+    @apply bg-foreground text-background hover:bg-foreground/85;
   }
   .btn-secondary {
     @apply bg-secondary text-secondary-foreground hover:bg-accent;
   }
   .btn-outline {
-    @apply border border-border bg-card text-foreground hover:bg-muted;
+    @apply border border-input bg-transparent text-foreground hover:bg-muted;
   }
   .btn-ghost {
-    @apply text-foreground hover:bg-muted;
+    @apply text-muted-foreground hover:text-foreground hover:bg-muted;
   }
   .btn-danger {
     @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
@@ -400,24 +449,40 @@
     @apply px-2.5 py-1.5 text-xs;
   }
   .input {
-    @apply w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-2 focus:outline-offset-0 focus:outline-ring;
+    @apply w-full rounded-sm border border-input bg-card px-2.5 py-1.5 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-2 focus:outline-offset-0 focus:outline-ring;
+    transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+  }
+  .input:hover:not(:focus) {
+    border-color: color-mix(in oklch, var(--color-foreground) 38%, var(--color-input));
   }
   .label {
-    @apply mb-1 block text-xs font-semibold text-muted-foreground;
+    @apply mb-1 block text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground;
   }
   .card {
-    @apply rounded-xl border border-border bg-card text-card-foreground shadow-[var(--shadow-card)];
+    @apply rounded-sm border border-border bg-card text-card-foreground;
   }
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-4;
+    @apply inline-flex items-center gap-1 rounded-sm border px-1.5 py-px text-[10px] font-semibold uppercase leading-[1.4] tracking-[0.06em];
+    transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), background-color var(--dur) var(--ease);
   }
   .table-base {
     @apply w-full text-sm;
   }
   .table-base th {
-    @apply border-b border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground;
+    @apply border-b border-foreground px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground;
   }
   .table-base td {
     @apply border-b border-border px-3 py-2 align-top;
+  }
+}
+
+@layer base {
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

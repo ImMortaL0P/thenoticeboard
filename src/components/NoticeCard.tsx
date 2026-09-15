@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, CalendarDays } from "lucide-react";
+import { ArrowRight, BadgeCheck } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import {
   checkEligibility,
@@ -11,8 +11,10 @@ import {
   formatNumber,
   getDeadline,
   hostOf,
+  isApplicable,
   isNew,
   isUpdated,
+  noticeTypeOf,
   reservedFee,
   type DeadlineTone,
   type EligibilityInput,
@@ -23,24 +25,9 @@ import { cn } from "@/lib/utils";
 const toneText: Record<DeadlineTone, string> = {
   urgent: "text-urgent",
   warn: "text-warn-foreground",
-  open: "text-open",
+  open: "text-foreground",
   neutral: "text-muted-foreground",
 };
-
-const toneTile: Record<DeadlineTone, string> = {
-  urgent: "border-urgent/25 bg-urgent/10",
-  warn: "border-warn/35 bg-warn/10",
-  open: "border-open/30 bg-open/10",
-  neutral: "border-border bg-muted/40",
-};
-
-const AVATAR_TINTS = [
-  "bg-open/12 text-open",
-  "bg-warn/12 text-warn-foreground",
-  "bg-accent text-primary",
-  "bg-neutral-soft text-neutral",
-  "bg-urgent/10 text-urgent",
-] as const;
 
 function monogramOf(s?: string): string {
   const base = (s ?? "").replace(/[^A-Za-z0-9]/g, "");
@@ -49,16 +36,14 @@ function monogramOf(s?: string): string {
   return "NB";
 }
 
-function tintFor(s: string): string {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return AVATAR_TINTS[h % AVATAR_TINTS.length];
-}
-
+/**
+ * One entry in the register. Deliberately not a card: a hairline gutter carries
+ * the deadline, the headline carries the notice, and the five facts sit on a
+ * fixed grid so that vacancies, age and fee line up column-wise down the page.
+ */
 export function NoticeCard({
   n,
   profile,
-  index = 0,
   feature = false,
 }: {
   n: Notice;
@@ -71,12 +56,12 @@ export function NoticeCard({
   const title = lang === "hi" && n.titleHi ? n.titleHi : n.title;
   const elig = profile ? checkEligibility(n, profile) : null;
 
+  const orgName = n.organization?.name ?? n.organization?.shortName ?? "Notice";
   const orgKey = n.organization?.shortName ?? n.organization?.name ?? "notice";
   const dl = n.applyLast ? new Date(`${n.applyLast}T00:00:00Z`) : null;
+  const locale = lang === "hi" ? "hi-IN" : "en-GB";
   const dlDay = dl ? dl.getUTCDate() : null;
-  const dlMonth = dl
-    ? dl.toLocaleDateString(lang === "hi" ? "hi-IN" : "en-US", { month: "short", timeZone: "UTC" })
-    : null;
+  const dlMonth = dl ? dl.toLocaleDateString(locale, { month: "short", timeZone: "UTC" }) : null;
 
   const deadlineLabel =
     d.boardStatus === "upcoming" && d.days !== null
@@ -91,137 +76,127 @@ export function NoticeCard({
               ? t("card.daysLeft", { days: d.days })
               : t("dates.tbd");
 
+  const source = n.officialSourceUrl ?? n.organization?.officialWebsite ?? null;
+  const isExam = noticeTypeOf(n) === "entrance_exam";
+
+  // A field that does not exist for this kind of notice is shown as "Not
+  // applicable" and set in muted type, so it reads as a category rather than as
+  // data we failed to collect.
+  const factFor = (field: string, value: string) =>
+    isApplicable(n, field) ? { value, muted: false } : { value: t("card.notApplicable"), muted: true };
+
   return (
     <article
       className={cn(
-        "stagger-row content-view card-lift group relative grid grid-cols-[3.25rem_1fr] gap-x-3 gap-y-2 rounded-xl border border-border bg-card px-4 py-4 shadow-[var(--shadow-card)]",
-        "sm:grid-cols-[3.5rem_1fr] sm:gap-x-4 sm:px-5",
-        feature && "sm:grid-cols-[3.75rem_1fr] sm:px-6 sm:py-5",
+        "register-row content-view group relative grid grid-cols-[3.5rem_1fr] gap-x-4 px-2 py-4 sm:grid-cols-[4.25rem_1fr] sm:gap-x-6 sm:px-3",
+        feature && "sm:py-5",
       )}
-      style={{ animationDelay: `${Math.min(index * 45, 320)}ms` }}
     >
-      {/* Deadline mark */}
-      <div
-        className={cn(
-          "flex w-full flex-col items-center justify-center self-start rounded-xl border px-1 py-2 text-center",
-          toneTile[d.tone],
-        )}
-        aria-label={deadlineLabel}
-      >
+      {/* Deadline gutter — a dateline, separated by a rule rather than a tinted box. */}
+      <div className="flex flex-col items-end border-r border-border pr-4 text-right sm:pr-6">
         {dl ? (
           <>
-            <span className={cn("text-[10px] font-bold uppercase tracking-[0.08em]", toneText[d.tone])}>
-              {dlMonth ?? ""}
-            </span>
-            <span className={cn("mt-0.5 text-xl font-black leading-none tabular-nums sm:text-2xl", toneText[d.tone])}>
-              {dlDay ?? ""}
-            </span>
-            <span className="mt-1.5 max-w-[3.25rem] text-[9px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-              {deadlineLabel}
-            </span>
-            {n.serialNumber != null && (
-              <span className="mt-1.5 text-[9px] font-mono font-bold leading-tight tracking-widest text-muted-foreground/70">
-                NB-{n.serialNumber}
-              </span>
-            )}
+            <span className={cn("eyebrow leading-none", d.tone === "urgent" && "text-urgent")}>{dlMonth}</span>
+            <span className={cn("day-figure mt-1 text-[2.1rem] sm:text-[2.5rem]", toneText[d.tone])}>{dlDay}</span>
           </>
         ) : (
-          <>
-            <CalendarDays className={cn("mb-1 size-4", toneText[d.tone])} />
-            <span className="text-[9px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
-              {deadlineLabel}
-            </span>
-            {n.serialNumber != null && (
-              <span className="mt-1.5 text-[9px] font-mono font-bold leading-tight tracking-widest text-muted-foreground/70">
-                NB-{n.serialNumber}
-              </span>
-            )}
-          </>
+          <span className={cn("day-figure mt-1 text-[2.1rem] sm:text-[2.5rem]", toneText[d.tone])}>—</span>
+        )}
+        <span
+          className={cn(
+            "mt-1.5 font-mono text-[9.5px] uppercase leading-tight tracking-[0.05em]",
+            d.tone === "urgent" ? "text-urgent" : "text-muted-foreground",
+          )}
+        >
+          {deadlineLabel}
+        </span>
+        {n.serialNumber != null && (
+          <span className="mt-2 font-mono text-[9.5px] tracking-[0.08em] text-muted-foreground/60">
+            NB-{n.serialNumber}
+          </span>
         )}
       </div>
 
       <div className="min-w-0">
-        {/* Org identity + status chips */}
+        {/* Byline */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className={cn("avatar overflow-hidden", !n.organization?.logoUrl && tintFor(orgKey), feature ? "size-9 sm:size-10" : "size-8 sm:size-9")}>
-            {n.organization?.logoUrl ? (
-              <img src={n.organization.logoUrl} alt={orgKey} className="size-full object-contain bg-white" />
-            ) : (
-              monogramOf(orgKey)
-            )}
+          <span className="orgmark orgmark-sm">
+            {n.organization?.logoUrl ? <img src={n.organization.logoUrl} alt="" /> : monogramOf(orgKey)}
           </span>
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs font-medium text-muted-foreground">
-            <span className="font-semibold text-foreground">
-              {n.organization?.shortName ?? n.organization?.name ?? "Notice"}
-            </span>
-            <Dot />
-            <span>{t(`sector.${n.sector}`)}</span>
-          </span>
+          <span className="min-w-0 truncate text-[12.5px] font-medium text-foreground">{orgName}</span>
+          <Dot />
+          <span className="eyebrow">{t(`sector.${n.sector}`)}</span>
           <span className="ml-auto flex items-center gap-1.5">
-            {isNew(n) && <span className="chip border-primary/30 bg-accent text-accent-foreground">{t("card.new")}</span>}
-            {isUpdated(n) && <span className="chip border-warn/40 bg-warn-soft text-warn-foreground">{t("card.updated")}</span>}
-            {n.isSample && <span className="chip border-border bg-muted text-muted-foreground">{t("card.sample")}</span>}
+            {isNew(n) && <span className="chip border-urgent/35 text-urgent">{t("card.new")}</span>}
+            {isUpdated(n) && <span className="chip border-warn/45 text-warn-foreground">{t("card.updated")}</span>}
+            {isExam && <span className="chip border-border text-muted-foreground">{t("card.entranceExam")}</span>}
+            {n.isSample && <span className="chip border-border text-muted-foreground">{t("card.sample")}</span>}
           </span>
         </div>
 
         <h3
           className={cn(
-            "mt-2 line-clamp-2 font-extrabold leading-snug tracking-tighter",
-            feature ? "text-lg sm:text-xl" : "text-base sm:text-lg",
+            "mt-1.5 line-clamp-2 font-display font-semibold leading-[1.18]",
+            feature ? "text-[1.4rem] sm:text-[1.55rem]" : "text-[1.2rem] sm:text-[1.3rem]",
           )}
         >
-          <Link href={`/notice/${n.id}`} className="after:absolute after:inset-0 group-hover:text-primary">
+          <Link
+            href={`/notice/${n.id}`}
+            className="underline decoration-transparent decoration-1 underline-offset-[5px] transition-[text-decoration-color] duration-[var(--dur)] ease-[var(--ease)] after:absolute after:inset-0 group-hover:decoration-current"
+          >
             {title}
           </Link>
         </h3>
 
-        <dl className="mt-2.5 flex flex-wrap items-stretch gap-x-4 gap-y-1.5 text-xs">
-          <Fact label={t("card.vacancies")} value={formatNumber(n.totalVacancies)} />
+        {/* Five fixed columns so the eye can read down a column, not just across. */}
+        <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 border-t border-border/70 pt-2.5 sm:grid-cols-5">
+          <Fact label={t("card.vacancies")} {...factFor("totalVacancies", formatNumber(n.totalVacancies))} />
           <Fact label={t("card.qualification")} value={t(`qual.${n.minQualification}`)} />
-          <Fact label={t("card.age")} value={formatAgeRange(n.minAge, n.maxAge, t("dates.tbd"))} />
+          <Fact label={t("card.age")} value={formatAgeRange(n.minAge, n.maxAge, "—")} />
           <Fact
             label={t("card.fee")}
             value={`${formatFee(feeFor(n, "general"), t("card.free"))} / ${formatFee(reservedFee(n), t("card.free"))}`}
           />
-          {n.experienceRequiredYears > 0 && (
-            <Fact label={t("card.experience")} value={t("detail.years", { n: n.experienceRequiredYears })} />
-          )}
+          <Fact
+            label={t("card.experience")}
+            {...factFor(
+              "experienceRequiredYears",
+              n.experienceRequiredYears > 0 ? t("detail.years", { n: n.experienceRequiredYears }) : "—",
+            )}
+          />
         </dl>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-[11px]">
-          {n.officialSourceUrl ?? n.organization?.officialWebsite ? (
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-[11px]">
+          {source ? (
             <a
-              href={n.officialSourceUrl ?? n.organization?.officialWebsite!}
+              href={source}
               target="_blank"
               rel="noopener noreferrer"
-              className="relative z-10 inline-flex items-center gap-1 font-medium text-verified hover:underline"
+              className="relative z-10 inline-flex items-center gap-1 font-mono text-[10.5px] text-verified hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
-              <BadgeCheck className="size-3.5" />
-              {t("card.verifiedFrom", { source: hostOf(n.officialSourceUrl ?? n.organization?.officialWebsite) })}
+              <BadgeCheck className="size-3" />
+              {hostOf(source)}
             </a>
           ) : (
-            <span className="inline-flex items-center gap-1 font-medium text-verified">
-              <BadgeCheck className="size-3.5" />
-              {t("card.verifiedFrom", { source: hostOf(n.officialSourceUrl ?? n.organization?.officialWebsite) })}
-            </span>
+            <span />
           )}
           <span className="inline-flex items-center gap-2">
             {elig && (
               <span
                 className={cn(
                   "chip",
-                  elig.verdict === "eligible" && "border-open/30 bg-open-soft text-open",
-                  elig.verdict === "not_eligible" && "border-urgent/30 bg-urgent-soft text-urgent",
-                  elig.verdict === "check" && "border-border bg-muted text-muted-foreground",
+                  elig.verdict === "eligible" && "border-open/40 text-open",
+                  elig.verdict === "not_eligible" && "border-urgent/40 text-urgent",
+                  elig.verdict === "check" && "border-border text-muted-foreground",
                 )}
               >
                 {elig.verdict === "eligible" ? t("card.eligible") : elig.verdict === "not_eligible" ? t("card.notEligible") : t("card.check")}
               </span>
             )}
-            <span className="inline-flex items-center gap-1 font-semibold text-primary">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground">
               <span className="hidden sm:inline">{t("card.viewDetails")}</span>
-              <ArrowRight className="size-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
+              <ArrowRight className="size-3 transition-transform duration-150 group-hover:translate-x-0.5" />
             </span>
           </span>
         </div>
@@ -230,15 +205,17 @@ export function NoticeCard({
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
   return (
-    <div className="border-l border-border pl-3 first:border-l-0 first:pl-0">
+    <div className="min-w-0">
       <dt className="fact-label">{label}</dt>
-      <dd className="mt-0.5 max-w-48 truncate text-[13px] font-semibold text-foreground">{value}</dd>
+      <dd className={cn("mt-0.5 truncate fact-value", muted && "font-normal text-muted-foreground")} title={value}>
+        {value}
+      </dd>
     </div>
   );
 }
 
 function Dot() {
-  return <span aria-hidden className="size-1 rounded-full bg-border" />;
+  return <span aria-hidden className="size-[3px] shrink-0 rounded-full bg-border" />;
 }

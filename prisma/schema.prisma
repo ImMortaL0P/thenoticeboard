@@ -20,6 +20,12 @@ model Organization {
   officialWebsite String?
   logoUrl         String?
   isVerified      Boolean        @default(false)
+  // Canonical-identity fields. `domains` is the strongest matching signal:
+  // every SBI notice comes from sbi.co.in / bank.sbi, so URL host -> org is
+  // deterministic. `aliases` records every other spelling we have ever seen
+  // for this body, so an admin assigns an unknown name exactly once.
+  domains         Json           @default("[]") // string[] registrable domains
+  aliases         Json           @default("[]") // string[] normalised alternate names
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   notifications   Notification[]
@@ -43,6 +49,11 @@ model Notification {
   totalVacancies          Int?
   vacancyBreakup          Json     @default("{}") // { UR: 100, OBC: 50 ... }
   status                  String   @default("draft") // draft | pending_review | published | closed | archived | rejected
+  // What kind of notice this is. Entrance exams (UGC-NET, CAT, NEET PG, CLAT…)
+  // are national-level and belong on the board, but they have no vacancies,
+  // advertisement number or pay level by nature — so those fields read as
+  // "Not applicable" rather than as missing data.
+  noticeType              String   @default("recruitment") // recruitment | entrance_exam
   sector                  String
   state                   String?
   location                String?
@@ -76,8 +87,13 @@ model Notification {
   source                  Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   discoveredUrl           String?
   rawText                 String?
-  extractionMethod        String? // ai-anthropic | ai-openai | rules
+  extractionMethod        String? // ai-gemini | ai-anthropic | ai-openai | rules
   extractionNotes         String?
+  // How the organisation was decided, and how much of the notice we managed to
+  // extract. Together these drive the review queue ordering and, later, which
+  // items are safe to auto-publish.
+  orgConfidence           String?  // domain | alias | name | source | unresolved
+  extractionConfidence    Int?     // 0-100
   submittedById           String?
   reviewedById            String?
   reviewedAt              DateTime?
@@ -185,10 +201,22 @@ model Source {
   organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   sector          String
   kind            String        @default("html") // html | rss
+  // How far this source is trusted.
+  //   official   — the conducting body's own site. Data may be published from it.
+  //   aggregator — a third-party listing. Used ONLY to discover that a notice
+  //                exists; the notice itself is then read from the official
+  //                domain it points to. Nothing from an aggregator is ever
+  //                published directly, because "verified at the source" has to
+  //                mean the source.
+  trust           String        @default("official") // official | aggregator
   linkSelector    String        @default("a")
   includePattern  String        @default("recruit|notification|advertisement|advt|vacanc|bharti|भर्ती|विज्ञापन|engagement|walk-in|apprentice")
   excludePattern  String        @default("result|answer key|admit card|syllabus|tender|archive|index\\.php|help\\.php|gallery|norms|home|login|register|previous|next")
   intervalHours   Int           @default(3)
+  // Scheduling tier — see src/lib/scraper/schedule.ts. Controls both how often
+  // this source is swept and at which hours (IST), so high-yield national
+  // bodies are checked through the working day and the long tail overnight.
+  tier            String        @default("standard") // hot | standard | slow
   active          Boolean       @default(true)
   lastRunAt       DateTime?
   lastStatus      String? // ok | error

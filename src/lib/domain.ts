@@ -24,6 +24,60 @@ export const QUALIFICATIONS = [
 ] as const;
 export type Qualification = (typeof QUALIFICATIONS)[number] | "any";
 
+export const NOTICE_TYPES = ["recruitment", "entrance_exam"] as const;
+export type NoticeType = (typeof NOTICE_TYPES)[number];
+
+/**
+ * Fields that do not exist for a given kind of notice.
+ *
+ * An entrance exam has no posts to fill, so "vacancies: —" reads as missing
+ * data when it is actually a category error. Listing them here lets the UI say
+ * "Not applicable" and lets the data-gap report stop counting them as holes.
+ *
+ * Age is deliberately NOT here: plenty of entrance exams do carry an upper age
+ * limit (NDA, some state CETs), so it stays an ordinary optional field.
+ */
+export const NOT_APPLICABLE_FIELDS: Record<NoticeType, readonly string[]> = {
+  recruitment: [],
+  entrance_exam: [
+    "totalVacancies",
+    "vacancyBreakup",
+    "advertisementNo",
+    "payLevel",
+    "experienceRequiredYears",
+    "ageRelaxation",
+  ],
+};
+
+export function noticeTypeOf(n: { noticeType?: string | null }): NoticeType {
+  return n.noticeType === "entrance_exam" ? "entrance_exam" : "recruitment";
+}
+
+/** Is this field meaningful for this notice at all? */
+export function isApplicable(n: { noticeType?: string | null }, field: string): boolean {
+  return !NOT_APPLICABLE_FIELDS[noticeTypeOf(n)].includes(field);
+}
+
+/**
+ * Recognise national entrance / eligibility examinations from their title or
+ * conducting body. Used to classify existing rows and as a prior for new ones.
+ */
+const ENTRANCE_EXAM_TITLE =
+  /\b(ugc[\s-]*net|csir[\s-]*net|\bnet\b|cat\s*20\d{2}|common admission test|xat\b|cuet|gate\s*20\d{2}|graduate aptitude test|clat|common law admission|neet|ini[\s-]*cet|fmge|nest|jee\b|joint entrance|cmat|snap\b|iift|tissnet|mat\s*20\d{2}|aieea|icar|ctet|\bset\b|slet)\b/i;
+
+const ENTRANCE_EXAM_ORGS = new Set([
+  "NTA", "NBEMS", "IIMCAT", "XLRI", "GATE", "NLUCONSORTIUM",
+]);
+
+export function detectNoticeType(input: {
+  title?: string | null;
+  orgShortName?: string | null;
+}): NoticeType {
+  if (input.orgShortName && ENTRANCE_EXAM_ORGS.has(input.orgShortName.toUpperCase())) return "entrance_exam";
+  if (input.title && ENTRANCE_EXAM_TITLE.test(input.title)) return "entrance_exam";
+  return "recruitment";
+}
+
 export const CATEGORIES = ["general", "ews", "obc", "sc", "st"] as const;
 export type Category = (typeof CATEGORIES)[number];
 

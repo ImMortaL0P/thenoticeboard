@@ -1,12 +1,38 @@
 // Rules-based extraction of notice fields from raw page/PDF text.
-// Never auto-publishes: callers create draft Notifications with status "pending_review".
-// Kept free of "@/..." imports so it runs both in Next.js and under tsx (worker).
+//
+// This is not a fallback any more — it runs FIRST, and a model is only called
+// when it cannot get enough. Indian recruitment notices are highly conventional
+// documents: they label their fields ("Last Date for Submission of Online
+// Application", "आवेदन की अंतिम तिथि", "Advt. No. 04/2026"), which makes them far
+// more tractable than free prose.
+//
+// The governing rule: read LABELS, never positions. The old version took the
+// first date it found and called it the notification date, which is how an exam
+// date ended up in `notificationDate`. A value is only accepted here when the
+// document says what it is.
+//
+// Kept free of "@/..." imports so it runs both in Next.js and under tsx.
 
 export type NoticeDraft = {
+  /**
+   * Canonical Organization.shortName the model PICKED from the list it was
+   * given — never a name it composed. null means "not in the list", which
+   * routes the item to review rather than inventing an organisation.
+   */
+  organizationShortName?: string | null;
+  /** Raw organisation name as printed on the document, used for alias learning. */
+  organizationNameRaw?: string | null;
+  /** One of SECTORS, or null. */
+  sector?: string | null;
+  /** "recruitment" | "entrance_exam" — decides which fields are applicable. */
+  noticeType?: string | null;
+  applyUrl?: string | null;
+  officialNotificationPdfUrl?: string | null;
+  postNames?: string[] | null;
   title: string | null;
   advertisementNo: string | null;
   totalVacancies: number | null;
-  minQualification: string; // any | 10th | 12th | diploma | graduate | engineering | postgraduate | phd
+  minQualification: string;
   minAge: number | null;
   maxAge: number | null;
   feeGeneral: number | null;
@@ -44,18 +70,124 @@ function toNumber(s: string | undefined | null): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+// ---------- dates ----------
+
+const MONTHS: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+};
+const MONTH_HI: Record<string, number> = {
+  जनवरी: 1, फरवरी: 2, "फ़रवरी": 2, मार्च: 3, अप्रैल: 4, मई: 5, जून: 6,
+  जुलाई: 7, अगस्त: 8, सितंबर: 9, सितम्बर: 9, अक्तूबर: 10, अक्टूबर: 10,
+  नवंबर: 11, नवम्बर: 11, दिसंबर: 12, दिसम्बर: 12,
+};
+
+function buildDate(d: number, m: number, y: number): string | null {
+  if (y < 100) y += 2000;
+  if (y < 2020 || y > 2035) return null;
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** Every date form Indian notices actually use, as one alternation. */
+const DATE_PATTERN = new RegExp(
+  [
+    // 31/01/2026, 31-01-2026, 31.01.2026
+    String.raw`(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{2,4})`,
+    // 31 January 2026 / 31st Jan, 2026
+    String.raw`(\d{1,2})\s*(?:st|nd|rd|th)?\s*[-\s]\s*([A-Za-zऀ-ॿ]{3,12})\.?\,?\s*(\d{4})`,
+    // January 31, 2026
+    String.raw`([A-Za-z]{3,12})\.?\s+(\d{1,2})\s*(?:st|nd|rd|th)?\,?\s*(\d{4})`,
+    // 2026-01-31
+    String.raw`(\d{4})-(\d{1,2})-(\d{1,2})`,
+  ].join("|"),
+  "gi",
+);
+
+/** Parse the first date appearing in `text`, or null. */
+export function findDate(text: string): string | null {
+  DATE_PATTERN.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = DATE_PATTERN.exec(text))) {
+    // numeric d/m/y
+    if (m[1] && m[2] && m[3]) {
+      const got = buildDate(Number(m[1]), Number(m[2]), Number(m[3]));
+      if (got) return got;
+      continue;
+    }
+    // d Month y
+    if (m[4] && m[5] && m[6]) {
+      const key = m[5].toLowerCase();
+      const mo = MONTHS[key.slice(0, 4)] ?? MONTHS[key.slice(0, 3)] ?? MONTH_HI[m[5]];
+      if (mo) {
+        const got = buildDate(Number(m[4]), mo, Number(m[6]));
+        if (got) return got;
+      }
+      continue;
+    }
+    // Month d, y
+    if (m[7] && m[8] && m[9]) {
+      const key = m[7].toLowerCase();
+      const mo = MONTHS[key.slice(0, 4)] ?? MONTHS[key.slice(0, 3)];
+      if (mo) {
+        const got = buildDate(Number(m[8]), mo, Number(m[9]));
+        if (got) return got;
+      }
+      continue;
+    }
+    // ISO
+    if (m[10] && m[11] && m[12]) {
+      const got = buildDate(Number(m[12]), Number(m[11]), Number(m[10]));
+      if (got) return got;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the date belonging to a labelled field.
+ *
+ * Looks for the label, then takes the first date within the next `window`
+ * characters. Anything further away is almost certainly a different field, so
+ * we return null rather than reach for it — a missing date is reviewable, a
+ * wrong one gets published.
+ */
+function labelledDate(text: string, label: RegExp, window = 140): string | null {
+  const re = new RegExp(label.source, label.flags.includes("g") ? label.flags : `${label.flags}g`);
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const slice = text.slice(m.index + m[0].length, m.index + m[0].length + window);
+    const found = findDate(slice);
+    if (found) return found;
+  }
+  return null;
+}
+
+const LABELS = {
+  applyLast:
+    /(?:last\s+date|closing\s+date|last\s+day|final\s+date)[^.\n]{0,60}?(?:appl|submi|registration|online|receipt)?|(?:आवेदन\s*(?:की)?\s*अंतिम\s*तिथि)|(?:अंतिम\s*तिथि)/i,
+  applyStart:
+    /(?:date\s+of\s+)?(?:commencement|opening|start(?:ing)?)\s*(?:date)?[^.\n]{0,40}?(?:appl|online|registration)?|(?:appl\w*\s+(?:begin|start|open)\w*)|(?:online\s+application\s+from)|(?:प्रारंभ\s*तिथि)|(?:आवेदन\s*प्रारंभ)/i,
+  feeLast:
+    /last\s+date[^.\n]{0,40}?(?:fee|payment|challan)|fee\s+payment[^.\n]{0,30}last\s+date|शुल्क[^।\n]{0,25}अंतिम\s*तिथि/i,
+  examDate:
+    /date\s+of\s+(?:exam\w*|test|written)|exam\w*\s+(?:date|scheduled)|tentative\s+date\s+of\s+exam\w*|परीक्षा\s*(?:की)?\s*तिथि/i,
+  // Hindi puts the date between the noun and the verb ("अधिसूचना 10/11/2025 को
+  // जारी की गई"), so the label is the noun alone and the window finds the date.
+  notificationDate:
+    /date\s+of\s+(?:notification|advertisement|issue|publication)|notification\s+(?:released|dated|issued)|advertisement\s+dated|dated\s*:|अधिसूचना|विज्ञापन\s*दिनांक/i,
+};
+
 // ---------- qualification ----------
 
-// `\b` does not span Devanagari in JS (\w is ASCII-only), so Hindi alternatives use
-// an explicit BOW/later-boundary via (?=[\s.,;:।]) or drop the boundary entirely.
 const QUAL_ORDER: ReadonlyArray<{ key: string; re: RegExp }> = [
   { key: "phd", re: /(?:ph\.?\s?d|doctorate)/i },
   { key: "postgraduate", re: /(?:\b(?:m\.?\s?a|m\.?\s?sc|m\.?\s?com|m\.?\s?tech|mba|pg(?:\s?(?:degree|diploma|course))?|post\s?graduat\w*)\b|(?:मास्टर|परास्नातक|स्नातकोत्तर)(?=[\s.,;:।]))/i },
   { key: "engineering", re: /(?:\b(?:b\.?\s?e|b\.?\s?tech|engineer\w*)\b|अभियांत्रिकी(?=[\s.,;:।]))/i },
   { key: "graduate", re: /(?:\b(?:graduat\w*|bachelou?\w*|degree|b\.?\s?a|b\.?\s?sc|b\.?\s?com|ll\.?b)\b|स्नातक(?=[\s.,;:।]))/i },
-  { key: "diploma", re: /(?:\bdiploma\b|डिप्लोमा(?=[\s.,;:।]))/i },
-  { key: "12th", re: /(?:\b(?:12th|12(\^|\s)?th|10\+2|intermediate|higher\s?secondary|senior\s?secondary)\b|(?:इंटरमीडिएट|बारहवीं|द्वादश)(?=[\s.,;:।]))/i },
-  { key: "10th", re: /(?:\b(?:10th|10(\^|\s)?th|matric\w*|high\s?school)\b|(?:दसवीं|मैट्रिक)(?=[\s.,;:।]))/i },
+  { key: "diploma", re: /(?:\bdiploma\b|\biti\b|डिप्लोमा(?=[\s.,;:।]))/i },
+  { key: "12th", re: /(?:\b(?:12th|12(?:\^|\s)?th|10\+2|intermediate|higher\s?secondary|senior\s?secondary)\b|(?:इंटरमीडिएट|बारहवीं|द्वादश)(?=[\s.,;:।]))/i },
+  { key: "10th", re: /(?:\b(?:10th|10(?:\^|\s)?th|matric\w*|high\s?school)\b|(?:दसवीं|मैट्रिक)(?=[\s.,;:।]))/i },
 ];
 
 export function detectQualification(text: string): string {
@@ -63,216 +195,190 @@ export function detectQualification(text: string): string {
   return "any";
 }
 
-// ---------- fields via regex ----------
+// ---------- other fields ----------
 
 function detectVacancies(text: string): number | null {
-  const slice = text.slice(0, 8000);
-  // Number-before-keyword ("450 पद", "1,245 posts") is more specific than the
-  // keyword-before-number form, so try it first — the second form's skip-ahead
-  // can drift across the next sentence into an age ("450 पद ... आयु 18") otherwise.
+  const slice = text.slice(0, 12_000);
+  // Strongest form first: an explicit total.
+  const total = slice.match(
+    /(?:total\s+(?:no\.?\s*of\s*)?(?:posts?|vacanc\w*)|कुल\s*(?:पद|रिक्ति)\w*)\s*[:\-–]?\s*([0-9][0-9,]*)/i,
+  );
+  if (total) return toNumber(total[1]);
+  // "1,245 posts" is more specific than "posts ... 1,245", which can drift.
   const after = slice.match(
-    /\b([0-9][0-9,]*(?:\.\d+)?)\s{0,3}(?:posts?|vacanc\w*|पद\s*ो?\s*ं?|रिक्ति\w{0,3})(?=[\s.,;:।]|$)/i,
+    /\b([0-9][0-9,]{1,8})\s{0,3}(?:posts?|vacanc\w*|पद\s*ो?\s*ं?|रिक्ति\w{0,3})(?=[\s.,;:।)]|$)/i,
   );
   if (after) return toNumber(after[1]);
   const before = slice.match(
-    /(?:vacanc\w*|total\s+posts?|पद\s*ो?\s*ं?|रिक्ति\w{0,3})\s*[:\-]?\s*[^0-9]{0,25}([0-9][0-9,]*(?:\.\d+)?)/i,
+    /(?:vacanc\w*|posts?|पद\s*ो?\s*ं?|रिक्ति\w{0,3})\s*[:\-–]?\s*[^0-9]{0,15}([0-9][0-9,]{1,8})/i,
   );
   return before ? toNumber(before[1]) : null;
 }
 
 function detectAge(text: string): { min: number | null; max: number | null } {
-  const slice = text.slice(0, 6000);
-  const range = slice.match(/(?:age|आयु)[^0-9]{0,40}?([0-9]{2})\s*(?:to|and|ndash|–|-|से|till|up\s?to)\s*([0-9]{2})/i);
-  if (range) return { min: toNumber(range[1]), max: toNumber(range[2]) };
-  const single = slice.match(/(?:age\s+limit|maximum\s+age|आयु\s+सीमा|अधिकतम\s+आयु)[^0-9]{0,30}?([0-9]{2})/i);
-  if (single) return { min: null, max: toNumber(single[1]) };
-  return { min: null, max: null };
+  const slice = text.slice(0, 10_000);
+  const sane = (n: number | null) => (n !== null && n >= 14 && n <= 70 ? n : null);
+  const range = slice.match(
+    /(?:age|आयु)[^0-9]{0,50}?([0-9]{2})\s*(?:years?)?\s*(?:to|and|–|—|-|से|till|up\s?to)\s*([0-9]{2})/i,
+  );
+  if (range) return { min: sane(toNumber(range[1])), max: sane(toNumber(range[2])) };
+  const max = slice.match(/(?:maximum\s+age|upper\s+age\s+limit|age\s+limit|अधिकतम\s*आयु|आयु\s*सीमा)[^0-9]{0,30}?([0-9]{2})/i);
+  const min = slice.match(/(?:minimum\s+age|न्यूनतम\s*आयु)[^0-9]{0,30}?([0-9]{2})/i);
+  return { min: sane(min ? toNumber(min[1]) : null), max: sane(max ? toNumber(max[1]) : null) };
 }
+
+const NIL = /\b(?:nil|free|exempt\w*|no\s+fee|शून्य|नि:?शुल्क|निःशुल्क)\b/i;
 
 function detectFees(text: string): { feeGeneral: number | null; feeReserved: number | null } {
-  const slice = text.slice(0, 6000);
-  const gen = slice.match(/(?:application\s*)?(?:reg\w*\s*)?fee[^0-9]{0,40}(?:rs\.?|₹)?\s*([0-9][0-9,]*)/i);
-  const hi = slice.match(/(?:शुल्क|फीस)[^0-9]{0,30}(?:₹)?\s*([0-9][0-9,]*)/i);
-  const general = gen ? toNumber(gen[1]) : hi ? toNumber(hi[1]) : null;
-  const res = slice.match(/(?:sc\/?st|reserved)[^0-9]{0,20}(?:rs\.?|₹)?\s*([0-9][0-9,]*)/i);
-  return { feeGeneral: general, feeReserved: res ? toNumber(res[1]) : null };
-}
-
-// ---------- dates ----------
-
-const MONTHS: Record<string, number> = {
-  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
-};
-const MONTH_HI: Record<string, number> = {
-  जनवरी: 1, फ़रवरी: 2, फ़रवरी: 2, फरवरी: 2, मार्च: 3, अप्रैल: 4, मई: 5, जून: 6, जुलाई: 7, अगस्त: 8, सितंबर: 9, सितम्बर: 9, अक्तूबर: 10, अक्टूबर: 10, नवंबर: 11, दिसंबर: 12, दिसम्बर: 12,
-};
-
-function parseDateParts(d: number, m: number, y: number): string | null {
-  if (y < 100) y += 2000;
-  if (y < 2020 || y > 2035) return null;
-  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-function normalizeDate(tok: string): string | null {
-  const slash = tok.match(/^(\d{1,2})\s*[\/\-]\s*(\d{1,2})\s*[\/\-]\s*(\d{2,4})$/);
-  if (slash) return parseDateParts(Number(slash[1]), Number(slash[2]), Number(slash[3]));
-  const named = tok.match(/^(\d{1,2})[a-z]+\.?\s+([A-Za-zअ-हऀ-ॿ]{3,})\s+(\d{4})$/i);
-  if (named) {
-    const [, d, mo, y] = named;
-    let m = MONTHS[mo.toLowerCase().slice(0, 3)];
-    if (!m) m = MONTH_HI[mo];
-    if (!m) return null;
-    return parseDateParts(Number(d), m, Number(y));
-  }
-  return null;
-}
-
-function tokenizeDates(text: string): { offset: number; date: string }[] {
-  const re = /\b(\d{1,2}\s*[\/\-]\s*\d{1,2}\s*[\/\-]\s*\d{2,4}|\d{1,2}[a-z]+\.?\s+[A-Za-zअ-हऀ-ॿ]{3,}\s+\d{4})\b/gi;
-  const out: { offset: number; date: string }[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text))) {
-    const date = normalizeDate(m[1].replace(/\s+/g, " "));
-    if (date) out.push({ offset: m.index, date });
-  }
-  return out;
-}
-
-function detectDates(text: string): { applyLast: string | null; notificationDate: string | null } {
-  const dates = tokenizeDates(text);
-  if (!dates.length) return { applyLast: null, notificationDate: null };
-  const last = dates.find(({ offset }) => {
-    const ctx = text.slice(Math.max(0, offset - 160), offset).toLowerCase();
-    return /last date|closing|अंतिम|आवेदन|apply\s*(?:before|online)/.test(ctx);
-  });
-  const issued = dates.find(({ offset }) => {
-    const ctx = text.slice(Math.max(0, offset - 160), offset).toLowerCase();
-    return /(?:notification|circular)\s+(?:issued|on|dated|released)|released\s+on|issued\s+on|dated|अधिसूचना|जारी|प्रकाशित/.test(ctx);
-  });
-  const maxDate = dates.reduce((a, b) => (a.date > b.date ? a : b));
-  return {
-    applyLast: last?.date ?? maxDate.date,
-    notificationDate: issued?.date ?? dates[0].date,
+  const slice = text.slice(0, 12_000);
+  const amount = (s: string | undefined): number | null => {
+    if (!s) return null;
+    const n = Number(s.replace(/[^\d]/g, ""));
+    return Number.isFinite(n) && n >= 0 && n < 100_000 ? n : null;
   };
+
+  // Reserved categories, including the very common "SC/ST/PwBD: Nil".
+  let feeReserved: number | null = null;
+  const resCtx = slice.match(/(?:sc\s*\/?\s*st|reserved|एससी|एसटी|अनुसूचित)[^0-9\n]{0,40}(?:rs\.?|₹|inr)?\s*([0-9][0-9,]*)/i);
+  const resNil = slice.match(/(?:sc\s*\/?\s*st|pwbd|pwd|female|women|reserved|एससी|एसटी)[^.\n]{0,50}/i);
+  if (resCtx) feeReserved = amount(resCtx[1]);
+  else if (resNil && NIL.test(resNil[0])) feeReserved = 0;
+
+  // General / UR.
+  let feeGeneral: number | null = null;
+  const genCtx = slice.match(
+    /(?:general|\bur\b|unreserved|obc|ews|सामान्य)[^0-9\n]{0,40}(?:rs\.?|₹|inr)?\s*([0-9][0-9,]*)/i,
+  );
+  if (genCtx) feeGeneral = amount(genCtx[1]);
+  if (feeGeneral === null) {
+    const anyFee = slice.match(/(?:application\s*)?(?:registration\s*)?fee[^0-9\n]{0,40}(?:rs\.?|₹|inr)?\s*([0-9][0-9,]*)/i);
+    const hiFee = slice.match(/(?:शुल्क|फीस)[^0-9\n]{0,30}(?:₹)?\s*([0-9][0-9,]*)/i);
+    feeGeneral = amount(anyFee?.[1]) ?? amount(hiFee?.[1]);
+  }
+  return { feeGeneral, feeReserved };
 }
 
-// ---------- misc fields ----------
-
-function detectAdNo(text: string): string | null {
-  const m = text
-    .slice(0, 4000)
-    .match(/(?:advt\w*\.?\s*no\.?|advertisement\s*(?:no\.?|number)|विज्ञापन\s*(?:संख्या|नं\.?))\s*[:\-]?\s*([A-Za-z]{0,6}[0-9]+(?:[\/\-.][A-Za-z0-9]+)*)/i);
+function detectAdvertisementNo(text: string): string | null {
+  const slice = text.slice(0, 6000);
+  const m = slice.match(
+    /(?:advt?\.?|advertisement|notification|notice|cen|employment\s+notice|विज्ञापन)\s*(?:no\.?|number|संख्या|सं\.?)\s*[:\-–]?\s*([A-Za-z0-9][A-Za-z0-9\/\-.]{2,30})/i,
+  );
   if (!m) return null;
-  // Single compact token only ("01/2026", "CEN-01/2026", "A-12013/01/2026") —
-  // never span whitespace into following headings.
-  const v = m[1].trim();
-  if (v.length < 2 || v.length > 40) return null;
-  return v;
-}
-
-function detectApplyStart(text: string): string | null {
-  const dates = tokenizeDates(text);
-  const start = dates.find(({ offset }) => {
-    const ctx = text.slice(Math.max(0, offset - 160), offset).toLowerCase();
-    return /(?:starting|commenc|आरंभ|शुरू|प्रारंभ)/.test(ctx);
-  });
-  return start?.date ?? null;
+  const value = m[1].replace(/[.,;]+$/, "");
+  // Guard against swallowing a stray word: a real advert number has a digit.
+  return /\d/.test(value) ? value : null;
 }
 
 function detectPayLevel(text: string): string | null {
-  const raw = text.slice(0, 6000);
-  // "Pay Level 7 ₹44,900-1,42,400", "Level 10", "Level-7 (₹44,900...)"
-  const level = raw.match(/(?:pay\s+)?level\s*-?\s*(\d+|I{1,3}|X{1,3}|IV?|V?I{0,3})(?=[^\d]|$)/i);
-  const details = raw.match(/(?:pay\s+level\s*[-:]?\s*)?(\d{2,3}(?:,\d{3})*\s*-\s*\d{2,3}(?:,\d{3})*)/);
-  if (details) return details[1].trim();
-  if (level) return `Level ${level[1].toUpperCase()}`;
+  const slice = text.slice(0, 12_000);
+  const level = slice.match(/(?:pay\s*(?:matrix\s*)?level|level)\s*[-–:]?\s*([0-9]{1,2})\b/i);
+  const band = slice.match(/(?:rs\.?|₹)\s*([0-9][0-9,]{3,})\s*(?:[-–—]|to)\s*(?:rs\.?|₹)?\s*([0-9][0-9,]{3,})/i);
+  if (level && band) return `Level ${level[1]} (₹${band[1]}–₹${band[2]})`;
+  if (level) return `Level ${level[1]}`;
+  if (band) return `₹${band[1]}–₹${band[2]}`;
   return null;
-}
-
-function detectSelectionProcess(text: string): string | null {
-  const slice = text.slice(0, 5000);
-  const m = slice.match(
-    /(?:selection\s*process|mode\s*of\s*selection|चयन\s*प्रक्रिया|selection\s*procedure)[^:\n]*?[:\-]([^.\n]{10,240})/i,
-  );
-  if (!m) return null;
-  return m[1].replace(/\s+/g, " ").trim().replace(/^[,;:\s]+/, "");
 }
 
 function detectExperience(text: string): number | null {
-  const slice = text.slice(0, 4000);
-  // "experience: X years", "X years experience", "1 year post-qualification experience"
-  const m = slice.match(/(?:experience|अनुभव)[^0-9]{0,40}?(\d{1,2})\s*(?:years?|वर्ष)/i) ||
-            slice.match(/(\d{1,2})\s*(?:years?|वर्ष)\s*(?:of\s*)?(?:experience|अनुभव)/i);
-  return m ? toNumber(m[1]) : null;
+  const slice = text.slice(0, 10_000);
+  const m = slice.match(/([0-9]{1,2})\s*(?:\+)?\s*years?[^.\n]{0,30}?experience|experience[^.\n]{0,30}?([0-9]{1,2})\s*years?/i);
+  if (!m) return null;
+  const n = Number(m[1] ?? m[2]);
+  return Number.isFinite(n) && n >= 0 && n <= 40 ? n : null;
 }
 
-// ---------- title / summary ----------
+function detectSelection(text: string): string | null {
+  const slice = text.slice(0, 12_000);
+  const m = slice.match(
+    /(?:selection\s+(?:process|procedure|shall\s+be|will\s+be)|mode\s+of\s+selection|चयन\s*प्रक्रिया)\s*[:\-–]?\s*([^\n.]{10,160})/i,
+  );
+  if (m) return m[1].trim();
+  const stages: string[] = [];
+  if (/computer\s*based\s*(?:test|exam)|\bcbt\b/i.test(slice)) stages.push("Computer Based Test");
+  if (/written\s*(?:test|exam)/i.test(slice)) stages.push("Written Examination");
+  if (/\binterview\b/i.test(slice)) stages.push("Interview");
+  if (/physical\s*(?:efficiency|standard|test)|\bpet\b|\bpst\b/i.test(slice)) stages.push("Physical Test");
+  if (/skill\s*test|typing\s*test/i.test(slice)) stages.push("Skill Test");
+  if (/document\s*verification/i.test(slice)) stages.push("Document Verification");
+  return stages.length ? stages.join(", ") : null;
+}
 
-const TITLE_HINT = /recruit\w*|vacanc\w*|posts?\s+of|भर्ती|रिक्ति\w*|notification\s+no\.?/i;
+/**
+ * Titles are found on the RAW text, before whitespace is collapsed.
+ *
+ * Line breaks are the strongest signal a notice gives about what its heading
+ * is — collapsing them first is what made the old pattern swallow "NOTICE
+ * Ministry of Railways Railway Recruitment" as one run of text.
+ */
+function detectTitle(raw: string, fallback: string | null): string | null {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter((l) => l.length >= 8 && l.length <= 140)
+    .slice(0, 60);
 
-function pickTitle(lines: string[], fallback: string | null): string | null {
-  let first: string | null = null;
+  // Strongest: an explicit "Recruitment of X" heading.
   for (const line of lines) {
-    const t = line.replace(/[.:\-—_|#*•]+$/g, "").trim();
-    if (t.length < 8) continue;
-    if (t.length > 300) continue;
-    if (/^https?:\/\//i.test(t)) continue;
-    if (/^\d[\d\s\/\-.,]*(?:वर्ष|years)?$/i.test(t)) continue;
-    if (/^(govt\.? of|भारत सरकार|आधिकारिक|official\s)/i.test(t)) continue;
-    first ??= t;
-    if (TITLE_HINT.test(t)) return t; // prefer the recruitment/vacancy heading
+    const m = line.match(/((?:recruitment|engagement|appointment)\s+(?:of|to|for)\s+.{4,110})/i);
+    if (m) return m[1].replace(/[.,;:]+$/, "").trim();
   }
-  return first ?? (fallback && fallback.length <= 300 ? fallback : null);
-}
-
-function pickSummary(lines: string[], title: string | null): string | null {
-  const start = title ? lines.findIndex((l) => l === title) + 1 : 0;
-  for (let i = start; i < Math.min(start + 6, lines.length); i++) {
-    const s = lines[i];
-    if (s.length >= 40 && s.length <= 400) return s;
+  // Next: any line that names itself a recruitment.
+  for (const line of lines) {
+    if (/recruit\w*|भर्ती|बहाली/i.test(line) && !/^applications?\s+are\s+invited/i.test(line)) {
+      return line.replace(/[.,;:]+$/, "").trim();
+    }
   }
+  if (fallback && fallback.trim().length > 8) return fallback.trim();
   return null;
 }
 
-function clean(text: string): string {
-  return text
-    .replace(/\r/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/ /g, " ")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+function detectPostNames(text: string): string[] | null {
+  const slice = text.slice(0, 8000);
+  const m = slice.match(/(?:post(?:s)?\s+of|name\s+of\s+post(?:s)?|पद\s*का\s*नाम)\s*[:\-–]?\s*([^\n.]{4,200})/i);
+  if (!m) return null;
+  const names = m[1]
+    .split(/\s*(?:,|\/|&|and)\s*/i)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter((p) => p.length >= 3 && p.length <= 60);
+  return names.length ? names.slice(0, 12) : null;
 }
 
-// ---------- main ----------
+// ---------- entry point ----------
 
 export function extractFromText(raw: string, fallbackTitle: string | null): NoticeDraft {
-  const text = clean(raw);
-  if (text.length < 40) return EMPTY_DRAFT;
-  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  const title = pickTitle(lines, fallbackTitle);
+  const text = raw.replace(/\s+/g, " ").trim();
+  // detectTitle deliberately receives `raw`, not `text` — see its comment.
+  const { min, max } = detectAge(text);
+  const { feeGeneral, feeReserved } = detectFees(text);
 
-  const fees = detectFees(text);
-  const dates = detectDates(text);
-  const age = detectAge(text);
+  const applyLast = labelledDate(text, LABELS.applyLast);
+  const applyStart = labelledDate(text, LABELS.applyStart);
+  let notificationDate = labelledDate(text, LABELS.notificationDate);
+
+  // A notification cannot be issued after its own closing date; if the labelled
+  // value disagrees, the label was matched on something else.
+  if (notificationDate && applyLast && notificationDate > applyLast) notificationDate = null;
 
   return {
     ...EMPTY_DRAFT,
-    title,
-    minQualification: detectQualification(text),
+    title: detectTitle(raw, fallbackTitle),
+    advertisementNo: detectAdvertisementNo(text),
     totalVacancies: detectVacancies(text),
-    minAge: age.min,
-    maxAge: age.max,
-    feeGeneral: fees.feeGeneral,
-    feeReserved: fees.feeReserved,
-    applyLast: dates.applyLast,
-    applyStart: detectApplyStart(text),
-    notificationDate: dates.notificationDate,
-    advertisementNo: detectAdNo(text),
-    summary: pickSummary(lines, title),
+    minQualification: detectQualification(text),
+    minAge: min,
+    maxAge: max,
+    feeGeneral,
+    feeReserved,
+    applyLast,
+    applyStart,
+    notificationDate,
     payLevel: detectPayLevel(text),
-    selectionProcess: detectSelectionProcess(text),
+    selectionProcess: detectSelection(text),
     experienceRequiredYears: detectExperience(text),
+    postNames: detectPostNames(text),
+    summary: null,
   };
 }
+
+/** Exposed for the rules-first gate in ai.ts and for tests. */
+export const __internals = { findDate, labelledDate, LABELS, detectAdvertisementNo, detectPayLevel };

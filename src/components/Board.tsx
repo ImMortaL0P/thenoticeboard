@@ -3,10 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, BadgeCheck, Search, SlidersHorizontal, X, ExternalLink, Bell } from "lucide-react";
+import { ArrowRight, Search, SlidersHorizontal, X } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import { NoticeCard } from "@/components/NoticeCard";
-import { ProcessSteps } from "@/components/ProcessSteps";
 import {
   CATEGORIES,
   QUALIFICATIONS,
@@ -111,7 +110,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
     return { open, week, recent };
   }, [notices]);
 
-  // The single most urgent live notice, surfaced as a real-card hero asset.
+  // The single most urgent live notice, run as the "stop press" item.
   const spotlight = useMemo(() => {
     const open = notices.filter((n) => {
       const d = getDeadline(n);
@@ -122,8 +121,16 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
 
   const activeCount = FILTER_KEYS.filter((k) => k !== "q" && k !== "sort" && k !== "sector" && params.get(k)).length;
 
+  const today = new Date().toLocaleDateString(lang === "hi" ? "hi-IN" : "en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+
   const filterPanel = (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       <Field label={t("filters.qualification")}>
         <select className="input" value={get("qual")} onChange={(e) => set("qual", e.target.value)}>
           <option value="">{t("filters.any")}</option>
@@ -145,7 +152,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
           </select>
         </Field>
       </div>
-      <p className="-mt-2 text-[11px] text-muted-foreground">{t("filters.ageHint")}</p>
+      <p className="-mt-1.5 text-[10.5px] leading-snug text-muted-foreground">{t("filters.ageHint")}</p>
       <Field label={t("filters.experience")}>
         <input className="input" type="number" min={0} max={40} value={get("exp")} onChange={(e) => set("exp", e.target.value)} />
       </Field>
@@ -169,7 +176,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
       <Field label={t("filters.fee")}>
         <input className="input" type="number" min={0} step={50} value={get("fee")} onChange={(e) => set("fee", e.target.value)} />
       </Field>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 text-[12.5px]">
         <input className="accent-primary" type="checkbox" checked={get("free") === "1"} onChange={(e) => set("free", e.target.checked ? "1" : "")} />
         {t("filters.freeForReserved")}
       </label>
@@ -182,7 +189,7 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
         </select>
       </Field>
       {profile && (
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-[12.5px]">
           <input className="accent-primary" type="checkbox" checked={get("eligible") === "1"} onChange={(e) => set("eligible", e.target.checked ? "1" : "")} />
           {t("filters.onlyEligible")}
         </label>
@@ -192,50 +199,47 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
   );
 
   return (
-    <div className="space-y-5">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
-        <div className="hero-wash" aria-hidden />
-        <div className="dot-grid absolute inset-0 opacity-40" aria-hidden />
-        <div className="relative grid items-center gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12 lg:py-10">
-          <div className="space-y-4">
-            <span className="kicker-pill">{t("home.kicker")}</span>
-            <div className="flex items-start gap-4 sm:gap-6">
-              <img src="/brand/symbol.png" alt="thenoticeboard symbol" className="size-16 sm:size-[4.5rem] lg:size-[6.5rem] xl:size-[7.5rem] object-contain dark:contrast-125 dark:brightness-110 shrink-0 select-none" />
-              <h1 className="max-w-2xl text-4xl font-black leading-[1.05] tracking-tighter sm:text-5xl lg:text-[3.25rem]">
-                {t("home.heroLead")}
-                <br />
-                <span className="highlight-ink text-primary">{t("home.heroAccent")}</span>
-              </h1>
-            </div>
-            <p className="max-w-xl text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">
+    <div className="page-enter">
+      {/* ── Masthead ─────────────────────────────────────────────────────── */}
+      <section className="rule-masthead pt-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 pb-3">
+          <span className="eyebrow">{t("home.kicker")}</span>
+          <span className="dateline">{today} · IST</span>
+        </div>
+
+        <div className="grid gap-8 border-t border-border pt-7 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-14">
+          <div>
+            <h1 className="max-w-3xl text-[2.35rem] font-semibold leading-[1.06] tracking-[-0.02em] sm:text-[3rem] lg:text-[3.4rem]">
+              {t("home.heroLead")}{" "}
+              <em className="not-italic text-primary">{t("home.heroAccent")}</em>
+            </h1>
+            <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
               {t("home.heroSub")}
             </p>
-            <div className="flex flex-wrap items-end gap-x-8 gap-y-3 pt-2">
-              <Stat label={t("stats.openNow")} value={stats.open} tone="text-open" />
-              <Stat label={t("stats.closingWeek")} value={stats.week} tone="text-urgent" />
-              <Stat label={t("stats.newToday")} value={stats.recent} tone="text-primary" />
-            </div>
           </div>
           {spotlight && <SpotlightCard n={spotlight} />}
         </div>
+
+        {/* Dateline strip — counts as record metadata, not as hero statistics. */}
+        <dl className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-1 border-t-2 border-foreground py-2.5 font-mono text-[11px] uppercase tracking-[0.05em]">
+          <Tally label={t("stats.openNow")} value={stats.open} />
+          <Tally label={t("stats.closingWeek")} value={stats.week} tone="text-urgent" />
+          <Tally label={t("stats.newToday")} value={stats.recent} />
+        </dl>
       </section>
 
-      {/* Our Process Section */}
-      <ProcessSteps />
-
       {notices.some((n) => n.isSample) && (
-        <p className="rounded-lg border border-warn/40 bg-warn-soft px-3 py-2 text-xs font-medium text-warn-foreground">
+        <p className="mt-5 border-l-2 border-warn bg-warn-soft px-3 py-2 text-[12px] text-warn-foreground">
           {t("home.sampleBanner")}
         </p>
       )}
 
-      {/* Toolbar */}
-      <div className="flex gap-2">
+      {/* ── Search + sector rail ─────────────────────────────────────────── */}
+      <div className="mt-8 flex gap-2">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
-            className="input pl-9"
+            className="input pl-8"
             placeholder={t("home.searchPlaceholder")}
             defaultValue={get("q")}
             onChange={(e) => set("q", e.target.value)}
@@ -247,72 +251,65 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
           <option value="vacancies">{t("sort.vacancies")}</option>
         </select>
         <button type="button" className="btn btn-outline lg:hidden" onClick={() => setSheetOpen(true)}>
-          <SlidersHorizontal className="size-4" />
-          {activeCount > 0 && <span className="chip border-primary bg-primary text-primary-foreground">{activeCount}</span>}
+          <SlidersHorizontal className="size-3.5" />
+          {activeCount > 0 && <span className="font-mono text-[10px]">{activeCount}</span>}
         </button>
       </div>
 
-      {/* Sector chips */}
-      <div className="scroll-x-thin flex gap-1.5 overflow-x-auto pb-1">
-        <SectorChip active={!get("sector")} onClick={() => set("sector", "")}>{t("home.allSectors")}</SectorChip>
+      <nav className="mt-3 flex gap-5 overflow-x-auto border-b border-border pb-0" aria-label={t("filters.sort")}>
+        <SectorTab active={!get("sector")} onClick={() => set("sector", "")}>{t("home.allSectors")}</SectorTab>
         {SECTORS.map((s) => (
-          <SectorChip key={s} active={get("sector") === s} onClick={() => set("sector", get("sector") === s ? "" : s)}>
+          <SectorTab key={s} active={get("sector") === s} onClick={() => set("sector", get("sector") === s ? "" : s)}>
             {t(`sector.${s}`)}
-          </SectorChip>
+          </SectorTab>
         ))}
-      </div>
+      </nav>
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[260px_1fr]">
-        {/* Desktop sidebar */}
+      <div className="mt-6 flex flex-col gap-8 lg:grid lg:grid-cols-[15rem_1fr] lg:gap-10">
+        {/* Filter rail */}
         <aside className="hidden lg:block">
-          <div className="sticky top-20 space-y-2">
-            <h2 className="px-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {t("filters.title")}
-            </h2>
-            <div className="card p-4">{filterPanel}</div>
+          <div className="sticky top-20">
+            <h2 className="eyebrow border-b border-foreground pb-1.5">{t("filters.title")}</h2>
+            <div className="pt-4">{filterPanel}</div>
           </div>
         </aside>
 
         <section className="min-w-0">
-          {/* Results header */}
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-muted-foreground">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <p className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
               {t("home.results", { count: filtered.length })}
             </p>
             {activeCount > 0 && (
               <button
                 type="button"
                 onClick={reset}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-colors hover:text-primary/70"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
               >
-                <X className="size-3.5" />
+                <X className="size-3" />
                 {t("home.clearFilters")}
               </button>
             )}
           </div>
 
           {filtered.length === 0 ? (
-            <div className="card flex flex-col items-center px-6 py-14 text-center">
-              <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <Search className="size-5" />
-              </span>
-              <p className="mt-3 text-sm font-medium text-foreground">{t("home.noResults")}</p>
+            <div className="border-t border-foreground px-2 py-16 text-center">
+              <p className="font-display text-xl">{t("home.noResults")}</p>
               <button className="btn btn-outline mt-4" onClick={reset}>{t("home.clearFilters")}</button>
             </div>
           ) : (
-            <div className="flex flex-col gap-3" lang={lang}>
+            <div className="register" lang={lang}>
               {filtered.map((n, i) => (
-                <NoticeCard key={n.id} n={n} profile={profile} index={i} feature={i < 3} />
+                <NoticeCard key={n.id} n={n} profile={profile} index={i} feature={i === 0} />
               ))}
             </div>
           )}
         </section>
       </div>
 
-      {/* Mobile bottom sheet — always mounted for slide animation */}
+      {/* Mobile filter sheet */}
       <div
         className={cn(
-          "fixed inset-0 z-50 lg:hidden sheet-mask",
+          "fixed inset-0 z-50 transition-opacity duration-200 lg:hidden",
           sheetOpen ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         role="dialog"
@@ -321,26 +318,25 @@ export function Board({ notices, profile }: { notices: Notice[]; profile: Eligib
         inert={!sheetOpen}
       >
         <button
-          className="absolute inset-0 bg-black/40"
+          className="absolute inset-0 bg-foreground/40"
           aria-label="Close"
           onClick={() => setSheetOpen(false)}
           tabIndex={sheetOpen ? 0 : -1}
         />
         <div
           className={cn(
-            "absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-border bg-card p-4 shadow-[var(--shadow-lift)]",
-            "sheet-panel",
-            sheetOpen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0",
+            "absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto border-t-2 border-foreground bg-card p-4 transition-transform duration-200",
+            sheetOpen ? "translate-y-0" : "translate-y-6",
           )}
         >
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-bold">{t("filters.title")}</h2>
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-2">
+            <h2 className="eyebrow">{t("filters.title")}</h2>
             <button className="btn btn-ghost btn-sm" onClick={() => setSheetOpen(false)} aria-label="Close">
               <X className="size-4" />
             </button>
           </div>
           {filterPanel}
-          <button className="btn btn-primary mt-3 w-full" onClick={() => setSheetOpen(false)}>
+          <button className="btn btn-primary mt-4 w-full" onClick={() => setSheetOpen(false)}>
             {t("filters.apply")} ({filtered.length})
           </button>
         </div>
@@ -358,20 +354,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
+function Tally({ label, value, tone }: { label: string; value: number; tone?: string }) {
   return (
-    <div>
-      <div className={cn("text-2xl font-bold tabular-nums tracking-tight", tone)}>{value}</div>
-      <div className="mt-0.5 text-xs font-medium text-muted-foreground">{label}</div>
+    <div className="flex items-baseline gap-1.5">
+      <dt className="order-2 text-muted-foreground">{label}</dt>
+      <dd className={cn("order-1 text-[13px] font-semibold tabular-nums text-foreground", tone)}>{value}</dd>
     </div>
   );
 }
 
+/** "Stop press" — the notice closing soonest, set as a boxed sidebar item. */
 function SpotlightCard({ n }: { n: Notice }) {
   const { t, lang } = useI18n();
   const d = getDeadline(n);
   const title = lang === "hi" && n.titleHi ? n.titleHi : n.title;
-  const org = n.organization?.shortName ?? n.organization?.name ?? "Notice";
+  const org = n.organization?.name ?? n.organization?.shortName ?? "Notice";
 
   const deadlineLabel =
     d.days === null
@@ -382,15 +379,8 @@ function SpotlightCard({ n }: { n: Notice }) {
           ? t("card.oneDayLeft")
           : t("card.daysLeft", { days: d.days });
 
-  const toneChip = {
-    urgent: "border-urgent/40 bg-urgent-soft text-urgent",
-    warn: "border-warn/40 bg-warn-soft text-warn-foreground",
-    open: "border-open/40 bg-open-soft text-open",
-    neutral: "border-border bg-muted text-muted-foreground",
-  }[d.tone];
-
   const date = n.applyLast
-    ? new Date(`${n.applyLast}T00:00:00Z`).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-US", {
+    ? new Date(`${n.applyLast}T00:00:00Z`).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-GB", {
         day: "numeric",
         month: "short",
         timeZone: "UTC",
@@ -398,57 +388,51 @@ function SpotlightCard({ n }: { n: Notice }) {
     : null;
 
   return (
-    <div className="glass-panel hidden rounded-2xl p-5 lg:block">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="font-semibold text-foreground">{org}</span>
-        <Dot />
-        <span>{t(`sector.${n.sector}`)}</span>
-        <BadgeCheck className="ml-auto size-3.5 text-verified" />
+    <aside className="hidden self-start border border-foreground lg:block">
+      <div className="border-b border-foreground bg-foreground px-3 py-1.5">
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-background">
+          {t("stats.closingWeek")}
+        </span>
       </div>
-      <h2 className="mt-3 line-clamp-3 text-sm font-semibold leading-snug text-foreground">
-        <Link href={`/notice/${n.id}`} className="group-hover:text-primary hover:text-primary">
-          {title}
+      <div className="px-4 py-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-[11.5px] font-medium">{org}</span>
+          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.05em] text-urgent">{deadlineLabel}</span>
+        </div>
+        <h2 className="mt-2 font-display text-[1.15rem] font-semibold leading-[1.2]">
+          <Link href={`/notice/${n.id}`} className="link-rule">
+            {title}
+          </Link>
+        </h2>
+        <dl className="mt-3.5 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-3">
+          <div>
+            <dt className="fact-label">{t("card.vacancies")}</dt>
+            <dd className="mt-0.5 fact-value">{formatNumber(n.totalVacancies)}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="fact-label">{t("card.lastDate")}</dt>
+            <dd className="mt-0.5 fact-value">{date ?? "—"}</dd>
+          </div>
+        </dl>
+        <Link href={`/notice/${n.id}`} className="btn btn-primary mt-4 w-full group/cta">
+          {t("card.viewDetails")}
+          <ArrowRight className="size-3 group-hover/cta:translate-x-0.5" />
         </Link>
-      </h2>
-      <div className="mt-4 flex items-center gap-3">
-        <span className={cn("chip", toneChip)}>{deadlineLabel}</span>
-        {date && <span className="text-xs font-semibold tabular-nums text-muted-foreground">{date}</span>}
       </div>
-      <dl className="mt-4 flex items-center gap-4 text-xs">
-        <SpotFact label={t("card.vacancies")} value={formatNumber(n.totalVacancies)} />
-        <SpotFact label={t("card.qualification")} value={t(`qual.${n.minQualification}`)} />
-      </dl>
-      <Link href={`/notice/${n.id}`} className="btn btn-primary btn-sm mt-5 w-full">
-        {t("card.viewDetails")}
-        <ArrowRight className="size-3.5" />
-      </Link>
-    </div>
+    </aside>
   );
 }
 
-function SpotFact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="fact-label">{label}</dt>
-      <dd className="mt-0.5 text-[13px] font-semibold text-foreground">{value}</dd>
-    </div>
-  );
-}
-
-function Dot() {
-  return <span aria-hidden className="size-1 rounded-full bg-border" />;
-}
-
-function SectorChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function SectorTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-[color,background-color,border-color,box-shadow] duration-150",
+        "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-[12.5px] font-medium transition-colors",
         active
-          ? "border-transparent bg-foreground text-background shadow-[var(--shadow-card)]"
-          : "border-border bg-transparent text-muted-foreground hover:border-primary/30 hover:bg-muted hover:text-foreground",
+          ? "border-primary text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
       )}
     >
       {children}

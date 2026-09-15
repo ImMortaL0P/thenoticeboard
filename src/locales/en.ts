@@ -100,6 +100,8 @@ export const en = {
   "card.fee": "Fee (Gen / Res)",
   "card.lastDate": "Last date",
   "card.experience": "Experience",
+  "card.entranceExam": "Entrance exam",
+  "card.notApplicable": "Not applicable",
   "card.free": "Free",
   "card.new": "New",
   "card.updated": "Updated",

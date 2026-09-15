@@ -102,6 +102,8 @@ export const hi: Partial<Record<TranslationKey, string>> = {
   "card.fee": "शुल्क (सामान्य / आरक्षित)",
   "card.lastDate": "अंतिम तिथि",
   "card.experience": "अनुभव",
+  "card.entranceExam": "प्रवेश परीक्षा",
+  "card.notApplicable": "लागू नहीं",
   "card.free": "नि:शुल्क",
   "card.new": "नया",
   "card.updated": "अपडेट",

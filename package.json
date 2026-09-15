@@ -16,7 +16,13 @@
     "worker": "tsx worker/index.ts",
     "scrape:once": "tsx worker/index.ts --scrape-once",
     "make-admin": "tsx scripts/make-admin.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "discover:once": "tsx worker/index.ts --discover-once",
+    "repair:data": "tsx scripts/repair-data.ts",
+    "tiers": "tsx scripts/set-source-tiers.ts",
+    "backfill": "tsx scripts/backfill-notices.ts",
+    "test:providers": "tsx scripts/test-providers.ts",
+    "sources:add": "tsx scripts/add-sources.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",
