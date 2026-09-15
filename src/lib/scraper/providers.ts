@@ -43,10 +43,25 @@ export function isQuotaExhausted(err: unknown): boolean {
   return /quota|billing|exceeded your current quota|insufficient_quota|credit/i.test(err.message);
 }
 
+/**
+ * Nothing is listening at all — the host is down, refused the connection, or
+ * does not resolve.
+ *
+ * This is NOT a transient overload. A local Ollama that is not running will
+ * refuse every connection for the whole run, and retrying it four times with
+ * backoff burns ~23 seconds per document to learn what the first failure
+ * already told us. Treated as "this provider is not here", and skipped.
+ */
+export function isUnreachable(err: unknown): boolean {
+  if (!(err instanceof ProviderError)) return false;
+  if (err.status !== 0) return false;
+  return /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ECONNRESET|socket hang up|other side closed/i.test(err.message);
+}
+
 /** 5xx and rate-limit 429s are load, not a bad request — worth retrying. */
 export function isTransient(err: unknown): boolean {
   if (!(err instanceof ProviderError)) return false;
-  if (isQuotaExhausted(err)) return false;
+  if (isQuotaExhausted(err) || isUnreachable(err)) return false;
   return err.status === 429 || (err.status >= 500 && err.status < 600) || err.status === 0;
 }
 
@@ -287,11 +302,17 @@ function openAiCompatible(cfg: {
   /** Strict json_schema support; false falls back to json_object + prompt. */
   jsonSchema?: boolean;
   extraHeaders?: Record<string, string>;
+  /**
+   * Usable with no key at all. A couple of endpoints serve an anonymous tier at
+   * a lower rate limit, which makes them worth keeping in the chain for someone
+   * who has not signed up for anything — a key only raises the ceiling.
+   */
+  anonymousOk?: boolean;
 }): Provider {
   return {
     name: cfg.name,
     readsPdf: false,
-    available: () => !!process.env[cfg.envKey],
+    available: () => !!process.env[cfg.envKey] || !!cfg.anonymousOk,
     async call(input) {
       countCall(cfg.name);
       const model = process.env[cfg.modelEnv] ?? cfg.defaultModel;
@@ -310,7 +331,9 @@ function openAiCompatible(cfg: {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env[cfg.envKey]}`,
+          // Anonymous tiers reject a malformed Authorization header, so it is
+          // sent only when a key actually exists.
+          ...(process.env[cfg.envKey] ? { Authorization: `Bearer ${process.env[cfg.envKey]}` } : {}),
           ...(cfg.extraHeaders ?? {}),
         },
         body: JSON.stringify({
@@ -372,10 +395,17 @@ export const nvidia = openAiCompatible({
   baseUrl: "https://integrate.api.nvidia.com/v1", defaultModel: "meta/llama-3.3-70b-instruct",
 });
 
-/** 400 RPM authenticated — the highest per-minute allowance of the free tiers. */
+/**
+ * Works with NO account: OVH serves an anonymous tier at a reduced rate limit,
+ * so this provider is live out of the box. Setting OVH_AI_TOKEN (OVHcloud
+ * control panel -> Public Cloud -> AI Endpoints -> API keys) raises the ceiling
+ * to ~400 RPM, but is not required to start.
+ */
 export const ovh = openAiCompatible({
   name: "ovh", envKey: "OVH_AI_TOKEN", modelEnv: "OVH_MODEL",
-  baseUrl: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", defaultModel: "Meta-Llama-3_3-70B-Instruct",
+  baseUrl: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+  defaultModel: "Meta-Llama-3_3-70B-Instruct",
+  anonymousOk: true,
 });
 
 /** 300 requests/hour on a free Hugging Face account. */
@@ -427,6 +457,7 @@ export const cloudflare: Provider = {
 export const llm7 = openAiCompatible({
   name: "llm7", envKey: "LLM7_API_KEY", modelEnv: "LLM7_MODEL",
   baseUrl: "https://api.llm7.io/v1", defaultModel: "gpt-4o-mini-2024-07-18",
+  anonymousOk: true,
 });
 
 /**

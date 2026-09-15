@@ -3,7 +3,7 @@
 
 import { extractFromText, type NoticeDraft } from "../extract";
 import { SECTORS, QUALIFICATIONS, NOTICE_TYPES, detectNoticeType } from "../domain";
-import { UNKNOWN, MAX_PDF_INLINE_BYTES, isQuotaExhausted, isTransient, providerChain, usage, type ProviderInput } from "./providers";
+import { UNKNOWN, MAX_PDF_INLINE_BYTES, isQuotaExhausted, isTransient, isUnreachable, providerChain, usage, type ProviderInput } from "./providers";
 
 export type ExtractInput = ProviderInput & { linkText: string | null; url?: string };
 
@@ -35,6 +35,14 @@ export class ExtractionUnavailable extends Error {
  * outright rather than retried per document.
  */
 const exhausted = new Set<string>();
+
+/**
+ * Providers that could not be reached at all this process — typically a local
+ * Ollama that is not running. Skipped outright rather than retried per
+ * document, so a switched-off local model costs one failed connection for the
+ * whole run instead of twenty seconds on every notice.
+ */
+const unreachable = new Set<string>();
 
 /** Every configured provider has exhausted its quota. Nothing will work today. */
 export class AllProvidersExhausted extends Error {
@@ -233,7 +241,7 @@ export async function autoExtract(input: ExtractInput): Promise<ExtractResult> {
   }
 
   const chain = providerChain();
-  const usable = chain.filter((p) => !exhausted.has(p.name));
+  const usable = chain.filter((p) => !exhausted.has(p.name) && !unreachable.has(p.name));
   if (chain.length > 0 && usable.length === 0) {
     console.warn(`  every extraction provider is out of quota (${chain.map((p) => p.name).join(", ")}). falling back to rules`);
     return { ...rulesResult, method: "rules-fallback-quota" };
@@ -279,6 +287,12 @@ export async function autoExtract(input: ExtractInput): Promise<ExtractResult> {
           exhausted.add(provider.name);
           attempts.push(`${provider.name}: quota exhausted`);
           break; // no amount of waiting brings a spent allowance back
+        }
+        if (isUnreachable(err)) {
+          console.log("not running");
+          unreachable.add(provider.name);
+          attempts.push(`${provider.name}: not reachable (is it running?)`);
+          break; // nothing is listening; it will not start mid-run
         }
         console.log(isTransient(err) ? "busy" : "failed");
         if (!isTransient(err)) {
