@@ -9,7 +9,7 @@
  * scraper's logs.
  */
 import "dotenv/config";
-import { gemini, anthropic, openai, ProviderError, type Provider } from "../src/lib/scraper/providers";
+import { gemini, groq, cerebras, mistral, openrouter, githubModels, anthropic, openai, ProviderError, type Provider } from "../src/lib/scraper/providers";
 
 const SAMPLE = `
 STAFF SELECTION COMMISSION
@@ -25,16 +25,20 @@ const ORGS = [
   { shortName: "UPSC", name: "Union Public Service Commission" },
 ];
 
+const KEY_ENV: Record<string, string> = {
+  gemini: "GEMINI_API_KEY", groq: "GROQ_API_KEY", cerebras: "CEREBRAS_API_KEY",
+  mistral: "MISTRAL_API_KEY", openrouter: "OPENROUTER_API_KEY",
+  github: "GITHUB_MODELS_TOKEN", anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY",
+};
+
 function envFor(p: Provider): string {
-  if (p.name === "gemini") return `GEMINI_MODEL=${process.env.GEMINI_MODEL ?? "(default gemini-flash-latest)"}`;
-  if (p.name === "anthropic") return `ANTHROPIC_MODEL=${process.env.ANTHROPIC_MODEL ?? "(default)"}`;
-  return `OPENAI_MODEL=${process.env.OPENAI_MODEL ?? "(default)"}`;
+  return `${KEY_ENV[p.name] ?? "?"} set`;
 }
 
 async function check(p: Provider) {
   const label = p.name.padEnd(10);
   if (!p.available()) {
-    console.log(`${label} SKIPPED — no API key set`);
+    console.log(`${label} SKIPPED — ${KEY_ENV[p.name] ?? "key"} not set`);
     return;
   }
   console.log(`${label} ${envFor(p)}`);
@@ -72,7 +76,7 @@ async function check(p: Provider) {
 
 async function main() {
   console.log(`\nEXTRACT_PROVIDERS=${process.env.EXTRACT_PROVIDERS ?? "(default gemini,anthropic,openai)"}\n`);
-  for (const p of [gemini, anthropic, openai]) await check(p);
+  for (const p of [gemini, groq, cerebras, mistral, openrouter, githubModels, anthropic, openai]) await check(p);
   console.log("A provider marked AUTH FAILED or MODEL NOT FOUND is a permanent error: the");
   console.log("cascade stops trying it and falls through to the regex rules, which is why");
   console.log("extraction can look like it is 'always failing' even with three keys set.\n");

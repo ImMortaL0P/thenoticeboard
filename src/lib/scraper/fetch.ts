@@ -70,7 +70,7 @@ export type FetchedDoc =
    * were missing. Gemini reads a PDF natively, so the bytes go to the model and
    * `text` is only the best-effort local extraction, kept for rawText/fallback.
    */
-  | { kind: "pdf"; bytes: Buffer; text: string; url: string };
+  | { kind: "pdf"; bytes: Buffer; text: string; url: string; creationDate?: string };
 
 async function get(url: string, accept: string, timeoutMs: number): Promise<Response> {
   let res: Response;
@@ -92,12 +92,18 @@ export async function fetchPdf(url: string, timeoutMs = 45000): Promise<FetchedD
   const bytes = Buffer.from(await res.arrayBuffer());
   if (bytes.length > MAX_PDF_BYTES) throw new FetchError(`PDF too large (${bytes.length} bytes): ${url}`);
   let text = "";
+  let creationDate: string | undefined;
   try {
-    text = ((await pdfParse(bytes)).text ?? "").trim();
+    const parsed = await pdfParse(bytes);
+    text = (parsed.text ?? "").trim();
+    if (parsed.info?.CreationDate) {
+      const m = String(parsed.info.CreationDate).match(/D:(\d{4})(\d{2})(\d{2})/);
+      if (m) creationDate = `${m[1]}-${m[2]}-${m[3]}`;
+    }
   } catch {
-    text = ""; // scanned or broken font tables — Gemini still gets the bytes
+    text = ""; 
   }
-  return { kind: "pdf", bytes, text, url };
+  return { kind: "pdf", bytes, text, url, creationDate };
 }
 
 /** Fetch a document, returning HTML text or PDF bytes depending on what it is. */
@@ -109,8 +115,16 @@ export async function fetchDoc(url: string, timeoutMs = 25000): Promise<FetchedD
     const bytes = Buffer.from(await res.arrayBuffer());
     if (bytes.length > MAX_PDF_BYTES) throw new FetchError(`PDF too large: ${url}`);
     let text = "";
-    try { text = ((await pdfParse(bytes)).text ?? "").trim(); } catch { text = ""; }
-    return { kind: "pdf", bytes, text, url };
+    let creationDate: string | undefined;
+    try { 
+      const parsed = await pdfParse(bytes);
+      text = (parsed.text ?? "").trim(); 
+      if (parsed.info?.CreationDate) {
+        const m = String(parsed.info.CreationDate).match(/D:(\d{4})(\d{2})(\d{2})/);
+        if (m) creationDate = `${m[1]}-${m[2]}-${m[3]}`;
+      }
+    } catch { text = ""; }
+    return { kind: "pdf", bytes, text, url, creationDate };
   }
   return { kind: "html", text: await res.text(), url };
 }

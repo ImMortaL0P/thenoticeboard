@@ -105,6 +105,21 @@ const DATE_PATTERN = new RegExp(
 );
 
 /** Parse the first date appearing in `text`, or null. */
+export 
+function findApplyDateRange(text: string): [string, string] | null {
+  const re = /(?:apply|application|registration|online|form|payment)[^.\n]{0,200}?(?:from|start\w*|begin\w*|open\w*)[^.\n]{0,30}?([0-9]{1,2}[-./][0-9]{1,2}[-./][0-9]{2,4}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+[0-9]{1,2}(?:\s*,\s*|\s+)[0-9]{4})[^.\n]{0,60}?(?:to|till|close\w*|end\w*|-|&)[^.\n]{0,30}?([0-9]{1,2}[-./][0-9]{1,2}[-./][0-9]{2,4}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+[0-9]{1,2}(?:\s*,\s*|\s+)[0-9]{4})/i;
+  let m: RegExpExecArray | null;
+  const reG = new RegExp(re.source, re.flags + "g");
+  while ((m = reG.exec(text))) {
+    const dates1 = findAllDates(m[1]);
+    const dates2 = findAllDates(m[2]);
+    if (dates1.length > 0 && dates2.length > 0) {
+      return [dates1[0], dates2[0]];
+    }
+  }
+  return null;
+}
+
 export function findAllDates(text: string): string[] {
   DATE_PATTERN.lastIndex = 0;
   let m: RegExpExecArray | null;
@@ -371,9 +386,17 @@ export function extractFromText(raw: string, fallbackTitle: string | null): Noti
   const { min, max } = detectAge(text);
   const { feeGeneral, feeReserved } = detectFees(text);
 
-  const applyLast = labelledDate(text, LABELS.applyLast, 140, "max");
-  const applyStart = labelledDate(text, LABELS.applyStart, 140, "min");
+  let applyLast = labelledDate(text, LABELS.applyLast, 140, "max");
+  let applyStart = labelledDate(text, LABELS.applyStart, 140, "min");
   let notificationDate = labelledDate(text, LABELS.notificationDate);
+
+  if (!applyLast || !applyStart) {
+    const range = findApplyDateRange(text);
+    if (range) {
+      if (!applyStart) applyStart = range[0];
+      if (!applyLast) applyLast = range[1];
+    }
+  }
 
   // A notification cannot be issued after its own closing date; if the labelled
   // value disagrees, the label was matched on something else.

@@ -75,6 +75,14 @@ async function processDiscoveredLink(
     include: { updates: true },
   });
 
+  
+  if (doc.kind === "pdf" && doc.creationDate) {
+    if (daysBetween(doc.creationDate) < -180) { // older than 6 months
+      console.log(`       skipping old pdf (created ${doc.creationDate})`);
+      return "skipped_old";
+    }
+  }
+
   let rawText = doc.kind === "pdf" ? doc.text : htmlToText(doc.text);
   let effectivePdfBytes = doc.kind === "pdf" ? doc.bytes : null;
   let hasEmbeddedPdf = false;
@@ -126,7 +134,7 @@ async function processDiscoveredLink(
   const { draft, method, confidence } = await autoExtract({
     text: rawText,
     pdf: effectivePdfBytes ? { bytes: effectivePdfBytes } : null,
-    linkText: link.text,
+    linkText: link.text, url: link.url,
     orgChoices,
   });
 

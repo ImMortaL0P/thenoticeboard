@@ -265,88 +265,111 @@ export const anthropic: Provider = {
   },
 };
 
-// ---------------------------------------------------------------- OpenAI ----
-
-export const openai: Provider = {
-  name: "openai",
-  // Kept on the text path: local extraction is good enough for HTML pages and
-  // text-layer PDFs, and this provider is the last line before we give up.
-  readsPdf: false,
-  available: () => !!process.env.OPENAI_API_KEY,
-  async call(input) {
-    countCall("openai");
-    const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        messages: [
-          { role: "system", content: buildPrompt(input.orgChoices) },
-          { role: "user", content: input.text.slice(0, TEXT_CAP) },
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "notice", strict: true, schema: jsonSchema(input.orgChoices) },
-        },
-      }),
-      signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-    }).catch((e) => {
-      throw new ProviderError(String(e), 0, "openai");
-    });
-    if (!res.ok) throw new ProviderError((await res.text()).slice(0, 200), res.status, "openai");
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new ProviderError("no content", 0, "openai");
-    return JSON.parse(content);
-  },
-};
-
-// ------------------------------------------------------------------ Groq ----
+// ------------------------------------------------- OpenAI-compatible tier ----
 
 /**
- * Groq's free tier is generous and fast. It cannot read PDFs, which is fine:
- * most notices have a usable text layer, and this sits on the text path behind
- * Gemini so it only runs when Gemini's quota is gone.
+ * Most free providers speak the OpenAI chat-completions dialect, so one
+ * implementation covers all of them and adding another is three lines of
+ * config. None of these read PDFs, which is fine: the text-first policy in
+ * ai.ts means a PDF only goes to a model when its text layer is unusable, and
+ * Gemini/Anthropic handle that case.
+ *
+ * Between them these free tiers are worth roughly 30,000 requests a day, which
+ * is two orders of magnitude more than this pipeline needs. The point is not
+ * volume, it is that no single vendor's bad afternoon stops the board updating.
  */
-export const groq: Provider = {
-  name: "groq",
-  readsPdf: false,
-  available: () => !!process.env.GROQ_API_KEY,
-  async call(input) {
-    countCall("groq");
-    const model = process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        // json_object rather than json_schema: schema support varies by model on
-        // Groq, and sanitize() already rejects anything malformed.
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: `${buildPrompt(input.orgChoices)}\n\nReturn JSON with exactly these keys: ${Object.keys(
-              (jsonSchema(input.orgChoices) as { properties: Record<string, unknown> }).properties,
-            ).join(", ")}.`,
-          },
-          { role: "user", content: input.text.slice(0, 40_000) },
-        ],
-      }),
-      signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-    }).catch((e) => {
-      throw new ProviderError(String(e), 0, "groq");
-    });
-    if (!res.ok) throw new ProviderError((await res.text()).slice(0, 200), res.status, "groq");
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new ProviderError("no content", 0, "groq");
-    return JSON.parse(content);
-  },
-};
+function openAiCompatible(cfg: {
+  name: string;
+  envKey: string;
+  baseUrl: string;
+  defaultModel: string;
+  modelEnv: string;
+  /** Strict json_schema support; false falls back to json_object + prompt. */
+  jsonSchema?: boolean;
+  extraHeaders?: Record<string, string>;
+}): Provider {
+  return {
+    name: cfg.name,
+    readsPdf: false,
+    available: () => !!process.env[cfg.envKey],
+    async call(input) {
+      countCall(cfg.name);
+      const model = process.env[cfg.modelEnv] ?? cfg.defaultModel;
+      const schema = jsonSchema(input.orgChoices);
+      const responseFormat = cfg.jsonSchema
+        ? { type: "json_schema", json_schema: { name: "notice", strict: true, schema } }
+        : { type: "json_object" };
+      const system = cfg.jsonSchema
+        ? buildPrompt(input.orgChoices)
+        : `${buildPrompt(input.orgChoices)}\n\nReturn JSON with exactly these keys: ${Object.keys(
+            (schema as { properties: Record<string, unknown> }).properties,
+          ).join(", ")}.`;
+
+      const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env[cfg.envKey]}`,
+          ...(cfg.extraHeaders ?? {}),
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0,
+          response_format: responseFormat,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: input.text.slice(0, 40_000) },
+          ],
+        }),
+        signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+      }).catch((e) => {
+        throw new ProviderError(String(e), 0, cfg.name);
+      });
+      if (!res.ok) throw new ProviderError((await res.text()).slice(0, 200), res.status, cfg.name);
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) throw new ProviderError("no content", 0, cfg.name);
+      return JSON.parse(content);
+    },
+  };
+}
+
+/** 30 RPM · 14,400/day · no card. Fastest of the free tiers. */
+export const groq = openAiCompatible({
+  name: "groq", envKey: "GROQ_API_KEY", modelEnv: "GROQ_MODEL",
+  baseUrl: "https://api.groq.com/openai/v1", defaultModel: "llama-3.3-70b-versatile",
+});
+
+/** 30 RPM · 14,400/day · 60k TPM · no card. */
+export const cerebras = openAiCompatible({
+  name: "cerebras", envKey: "CEREBRAS_API_KEY", modelEnv: "CEREBRAS_MODEL",
+  baseUrl: "https://api.cerebras.ai/v1", defaultModel: "llama-3.3-70b",
+});
+
+/** ~1 req/sec · 1B tokens a month · no card. The most generous by token volume. */
+export const mistral = openAiCompatible({
+  name: "mistral", envKey: "MISTRAL_API_KEY", modelEnv: "MISTRAL_MODEL",
+  baseUrl: "https://api.mistral.ai/v1", defaultModel: "mistral-small-latest",
+});
+
+/** 20 RPM · 200/day · no card. Routes to several open models. */
+export const openrouter = openAiCompatible({
+  name: "openrouter", envKey: "OPENROUTER_API_KEY", modelEnv: "OPENROUTER_MODEL",
+  baseUrl: "https://openrouter.ai/api/v1", defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
+  extraHeaders: { "HTTP-Referer": process.env.SITE_URL ?? "https://thenoticeboard.in", "X-Title": "thenoticeboard" },
+});
+
+/** 10-15 RPM · 50-150/day · free with any GitHub account. Small but high quality. */
+export const githubModels = openAiCompatible({
+  name: "github", envKey: "GITHUB_MODELS_TOKEN", modelEnv: "GITHUB_MODELS_MODEL",
+  baseUrl: "https://models.inference.ai.azure.com", defaultModel: "gpt-4o-mini", jsonSchema: true,
+});
+
+/** Paid. Last in the chain, and only runs if a key is actually set. */
+export const openai = openAiCompatible({
+  name: "openai", envKey: "OPENAI_API_KEY", modelEnv: "OPENAI_MODEL",
+  baseUrl: "https://api.openai.com/v1", defaultModel: "gpt-4o-mini", jsonSchema: true,
+});
 
 /**
  * Order is deliberate: Gemini first (cheapest, reads PDFs), Anthropic second
@@ -354,8 +377,13 @@ export const groq: Provider = {
  * OpenAI last on the text path. Override with EXTRACT_PROVIDERS="gemini,openai".
  */
 export function providerChain(): Provider[] {
-  const all: Record<string, Provider> = { gemini, groq, anthropic, openai };
-  const configured = (process.env.EXTRACT_PROVIDERS ?? "gemini,groq,anthropic,openai")
+  const all: Record<string, Provider> = {
+    gemini, groq, cerebras, mistral, openrouter, github: githubModels, anthropic, openai,
+  };
+  // Gemini first (reads PDFs, cheapest), then the free text tiers in descending
+  // order of daily allowance, then the paid ones if keys exist.
+  const configured = (process.env.EXTRACT_PROVIDERS ??
+    "gemini,groq,cerebras,mistral,openrouter,github,anthropic,openai")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);

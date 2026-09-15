@@ -5,7 +5,7 @@ import { extractFromText, type NoticeDraft } from "../extract";
 import { SECTORS, QUALIFICATIONS, NOTICE_TYPES, detectNoticeType } from "../domain";
 import { UNKNOWN, MAX_PDF_INLINE_BYTES, isQuotaExhausted, isTransient, providerChain, usage, type ProviderInput } from "./providers";
 
-export type ExtractInput = ProviderInput & { linkText: string | null };
+export type ExtractInput = ProviderInput & { linkText: string | null; url?: string };
 
 export type ExtractResult = {
   draft: NoticeDraft;
@@ -72,7 +72,13 @@ export function textIsUsable(text: string): boolean {
  * notice or a syllabus has no business consuming quota — a recruitment notice
  * always carries both a date and recruitment vocabulary.
  */
-export function looksLikeNotice(text: string): boolean {
+export function looksLikeNotice(text: string, url?: string): boolean {
+  if (url) {
+    const lo = url.toLowerCase();
+    if (lo.includes('/job/details_') || lo.includes('syllabus') || lo.includes('corrigendum') || lo.includes('result')) {
+      return false;
+    }
+  }
   const head = text.slice(0, 20_000);
   const hasDate = /\b\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\b|\b\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(head);
   const hasVocab =
@@ -214,7 +220,7 @@ export async function autoExtract(input: ExtractInput): Promise<ExtractResult> {
   const effective: ProviderInput = { ...input, text, pdf };
 
   // Not a notice at all: do not spend a call on it.
-  if (!pdf && !looksLikeNotice(text)) {
+  if (!pdf && !looksLikeNotice(text, input.url)) {
     return { ...rules(), method: "rules-skipped" };
   }
 
