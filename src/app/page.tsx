@@ -4,6 +4,7 @@ import { toNotice } from "@/lib/domain";
 import { getCurrentUser } from "@/lib/auth";
 import { profileToInput } from "@/lib/profile";
 import { Board } from "@/components/Board";
+import { BackedBy } from "@/components/BackedBy";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +18,11 @@ export default async function HomePage() {
     getCurrentUser(),
   ]);
   return (
-    <Suspense>
-      <Board notices={rows.map(toNotice)} profile={profileToInput(user)} />
-    </Suspense>
+    <>
+      <Suspense>
+        <Board notices={rows.map(toNotice)} profile={profileToInput(user)} />
+      </Suspense>
+      <BackedBy />
+    </>
   );
 }

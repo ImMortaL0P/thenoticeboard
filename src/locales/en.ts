@@ -29,6 +29,7 @@ export const en = {
   "home.heroTitle": "Government job notices, verified at the source.",
   "home.heroSub":
     "Deadlines, fees, eligibility and official download links from UPSC, SSC, banks, railways, defence, PSUs, state PSCs and verified private employers.",
+  "home.backedBy": "Backed by",
   "home.kicker": "Verified Career notifications",
   "home.heroLead": "All notifications at one place,",
   "home.heroAccent": "verified at the source.",
