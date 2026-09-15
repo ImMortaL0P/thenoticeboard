@@ -6,7 +6,7 @@
 // handling 429s.
 
 import { acquire, release } from "./limits";
-import { isQuotaExhausted, isTransient, isUnreachable, type Provider, type ProviderInput } from "../scraper/providers";
+import { isQuotaExhausted, isTimeout, isTransient, isUnreachable, type Provider, type ProviderInput } from "../scraper/providers";
 import { SECTORS, QUALIFICATIONS, NOTICE_TYPES, detectNoticeType } from "../domain";
 import type { NoticeDraft } from "../extract";
 
@@ -25,38 +25,57 @@ export async function callProvider(
 ): Promise<CallResult | null> {
   const log = opts.log ?? (() => {});
 
+  const ATTEMPTS = 3;
+
   for (const provider of chain) {
     if (dead.has(provider.name)) continue;
 
-    // Wait for this provider's turn rather than being rejected by it.
-    const ok = await acquire(provider.name);
-    if (!ok) {
-      log(`       ${provider.name}: daily allowance spent`);
-      dead.add(provider.name);
-      continue;
-    }
+    // A transient failure is retried on the SAME provider before moving on.
+    // Previously one hiccup dropped straight through to the next provider,
+    // which meant that with a single-provider chain (--local-only) one slow
+    // first call ended the notice entirely.
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+      const ok = await acquire(provider.name);
+      if (!ok) {
+        log(`       ${provider.name}: daily allowance spent`);
+        dead.add(provider.name);
+        break;
+      }
 
-    try {
-      log(`       ${provider.name}…`);
-      const raw = await provider.call(input);
-      return { provider: provider.name, raw };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message.slice(0, 100) : String(err);
-      if (isQuotaExhausted(err)) {
-        log(`       ${provider.name}: out of quota`);
-        dead.add(provider.name);
-      } else if (isUnreachable(err)) {
-        log(`       ${provider.name}: not running`);
-        dead.add(provider.name);
-      } else if (isTransient(err)) {
-        log(`       ${provider.name}: busy, moving on`);
-        await sleep(1_500);
-      } else {
+      try {
+        log(`       ${provider.name}${attempt > 1 ? ` (attempt ${attempt})` : ""}…`);
+        const raw = await provider.call(input);
+        return { provider: provider.name, raw };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message.slice(0, 120) : String(err);
+        if (isQuotaExhausted(err)) {
+          log(`       ${provider.name}: out of quota`);
+          dead.add(provider.name);
+          break;
+        }
+        if (isUnreachable(err)) {
+          log(`       ${provider.name}: not running`);
+          dead.add(provider.name);
+          break;
+        }
+        if (isTimeout(err)) {
+          log(`       ${provider.name}: timed out — the document may be long, or the model still loading`);
+          if (attempt === ATTEMPTS) break;
+          await sleep(3_000);
+          continue;
+        }
+        if (isTransient(err)) {
+          log(`       ${provider.name}: busy (${msg})`);
+          if (attempt === ATTEMPTS) break;
+          await sleep(2_000 * attempt);
+          continue;
+        }
         log(`       ${provider.name}: ${msg}`);
         dead.add(provider.name);
+        break;
+      } finally {
+        release(provider.name);
       }
-    } finally {
-      release(provider.name);
     }
   }
   return null;

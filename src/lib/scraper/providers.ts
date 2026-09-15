@@ -172,6 +172,23 @@ const TEXT_CAP = 120_000;
 export const CALL_TIMEOUT_MS = envNum("EXTRACT_TIMEOUT_MS", 60_000);
 
 /**
+ * A local model needs a completely different ceiling.
+ *
+ * 60s is right for a hosted API — one that has not answered in a minute is
+ * overloaded. A 7B running on a laptop is not overloaded, it is just working:
+ * loading ~6GB of weights on the first call, then generating at a handful of
+ * tokens a second over a 16k context. Ten minutes is generous on purpose,
+ * because with no quota to spend the only cost of waiting is time.
+ */
+export const LOCAL_TIMEOUT_MS = envNum("OLLAMA_TIMEOUT_MS", 600_000);
+
+/** A timeout is not the same as a refusal, and should not read like one. */
+export function isTimeout(err: unknown): boolean {
+  if (!(err instanceof ProviderError)) return false;
+  return err.status === 0 && /timeout|abort|TimeoutError/i.test(err.message);
+}
+
+/**
  * Above this size a PDF is not sent inline, even when its text layer is poor.
  *
  * Free tiers are metered in tokens, not requests, and a 12MB scanned PDF can be
@@ -206,19 +223,43 @@ function modelNotFound(status: number, body: string): boolean {
  */
 function scoreModel(id: string): number {
   const m = id.toLowerCase();
-  if (/embed|whisper|tts|speech|rerank|guard|moderat|vision|image|diffus|bge|clip/.test(m)) return -1;
-  let score = 0;
-  if (/instruct|chat|-it\b/.test(m)) score += 30;
-  if (/llama|qwen|mistral|gemma|deepseek|gpt|phi|command/.test(m)) score += 20;
-  // Bigger is better for instruction-following, up to a point.
-  const size = m.match(/(\d{1,3})\s*b\b/);
-  if (size) {
-    const b = Number(size[1]);
-    score += b >= 200 ? 22 : b >= 60 ? 25 : b >= 20 ? 18 : b >= 7 ? 12 : 4;
+
+  // Not text generators at all. These answer a chat request and then fail in
+  // confusing ways, so they are excluded rather than ranked low.
+  if (/embed|rerank|bge|clip|whisper|tts|speech|voice|audio|orpheus|canopylabs|diffus|image-gen|moderat|guard/.test(m)) {
+    return -1;
   }
-  if (/:free\b|free/.test(m)) score += 15;  // free variants matter on paid-tier routers
-  if (/preview|alpha|beta|experimental|deprecated/.test(m)) score -= 12;
-  if (/nano|tiny|mini|1b\b|0\.5b/.test(m)) score -= 6;
+
+  let score = 0;
+  if (/instruct|chat|-it\b|-it:/.test(m)) score += 30;
+  if (/llama|qwen|mistral|gemma|deepseek|gpt|phi|command|nemo/.test(m)) score += 20;
+
+  // Code and fill-in-the-middle models are tuned for completion, not for
+  // reading a document and answering in JSON. Mistral's own ranking put
+  // `mistral-code-latest` first, which would have been a poor choice here.
+  if (/\bcode|coder|fim\b|devstral|vibe-cli|-cli\b/.test(m)) score -= 45;
+
+  // Vision-language variants work on text but are weaker at it than their
+  // text-only siblings of the same size.
+  if (/\bvl\b|-vl-|vision/.test(m)) score -= 20;
+
+  // Agentic/router products expose different semantics than plain completions.
+  if (/compound|router|auto\b/.test(m)) score -= 25;
+
+  // Size. Mixture-of-experts slugs advertise total-then-active ("26b-a4b"):
+  // what matters for instruction-following is the ACTIVE count.
+  const total = m.match(/(\d{1,4})\s*b\b/);
+  const active = m.match(/a(\d{1,3})b\b/);
+  const billions = active ? Number(active[1]) : total ? Number(total[1]) : 0;
+  if (billions) {
+    score += billions >= 60 ? 25 : billions >= 20 ? 20 : billions >= 7 ? 12 : 3;
+  }
+
+  // Free variants matter when the provider also serves paid ones.
+  if (/:free\b/.test(m)) score += 18;
+
+  if (/preview|alpha|beta|experimental|deprecated|-fast\b/.test(m)) score -= 12;
+  if (/nano|tiny|\bmini\b|\b[0-3]b\b|0\.5b/.test(m)) score -= 8;
   return score;
 }
 
@@ -368,6 +409,8 @@ function openAiCompatible(cfg: {
   modelEnv: string;
   /** Strict json_schema support; false falls back to json_object + prompt. */
   jsonSchema?: boolean;
+  /** Override the per-call ceiling; local models need far longer. */
+  timeoutMs?: number;
   extraHeaders?: Record<string, string>;
   /**
    * Usable with no key at all. A couple of endpoints serve an anonymous tier at
@@ -413,7 +456,7 @@ function openAiCompatible(cfg: {
               { role: "user", content: input.text.slice(0, 40_000) },
             ],
           }),
-          signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+          signal: AbortSignal.timeout(cfg.timeoutMs ?? CALL_TIMEOUT_MS),
         }).catch((e) => {
           throw new ProviderError(String(e), 0, cfg.name);
         });
@@ -569,6 +612,7 @@ export const ollama: Provider = {
     name: "ollama", envKey: "OLLAMA_HOST", modelEnv: "OLLAMA_MODEL",
     baseUrl: () => `${envOr("OLLAMA_HOST", "http://localhost:11434")}/v1`,
     defaultModel: "noticeboard",
+    timeoutMs: LOCAL_TIMEOUT_MS,
   }),
   available: () => !!env("OLLAMA_HOST"),
 };
