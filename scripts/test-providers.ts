@@ -9,7 +9,8 @@
  * scraper's logs.
  */
 import "dotenv/config";
-import { gemini, groq, cerebras, mistral, openrouter, githubModels, anthropic, openai, ProviderError, type Provider } from "../src/lib/scraper/providers";
+import * as P from "../src/lib/scraper/providers";
+import { ProviderError, type Provider } from "../src/lib/scraper/providers";
 
 const SAMPLE = `
 STAFF SELECTION COMMISSION
@@ -27,8 +28,13 @@ const ORGS = [
 
 const KEY_ENV: Record<string, string> = {
   gemini: "GEMINI_API_KEY", groq: "GROQ_API_KEY", cerebras: "CEREBRAS_API_KEY",
-  mistral: "MISTRAL_API_KEY", openrouter: "OPENROUTER_API_KEY",
-  github: "GITHUB_MODELS_TOKEN", anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY",
+  mistral: "MISTRAL_API_KEY", nvidia: "NVIDIA_API_KEY", ovh: "OVH_AI_TOKEN",
+  sambanova: "SAMBANOVA_API_KEY", together: "TOGETHER_API_KEY",
+  scaleway: "SCALEWAY_API_KEY", huggingface: "HF_TOKEN", cohere: "COHERE_API_KEY",
+  cloudflare: "CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID",
+  openrouter: "OPENROUTER_API_KEY", github: "GITHUB_MODELS_TOKEN",
+  llm7: "LLM7_API_KEY", ollama: "OLLAMA_HOST",
+  anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY",
 };
 
 function envFor(p: Provider): string {
@@ -76,7 +82,12 @@ async function check(p: Provider) {
 
 async function main() {
   console.log(`\nEXTRACT_PROVIDERS=${process.env.EXTRACT_PROVIDERS ?? "(default gemini,anthropic,openai)"}\n`);
-  for (const p of [gemini, groq, cerebras, mistral, openrouter, githubModels, anthropic, openai]) await check(p);
+  const all: Provider[] = [
+    P.gemini, P.groq, P.cerebras, P.mistral, P.nvidia, P.ovh, P.sambanova,
+    P.together, P.scaleway, P.huggingface, P.cohere, P.cloudflare,
+    P.openrouter, P.githubModels, P.llm7, P.ollama, P.anthropic, P.openai,
+  ];
+  for (const p of all) await check(p);
   console.log("A provider marked AUTH FAILED or MODEL NOT FOUND is a permanent error: the");
   console.log("cascade stops trying it and falls through to the regex rules, which is why");
   console.log("extraction can look like it is 'always failing' even with three keys set.\n");

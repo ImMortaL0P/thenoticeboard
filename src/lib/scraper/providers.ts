@@ -281,7 +281,7 @@ export const anthropic: Provider = {
 function openAiCompatible(cfg: {
   name: string;
   envKey: string;
-  baseUrl: string;
+  baseUrl: string | (() => string);
   defaultModel: string;
   modelEnv: string;
   /** Strict json_schema support; false falls back to json_object + prompt. */
@@ -305,7 +305,8 @@ function openAiCompatible(cfg: {
             (schema as { properties: Record<string, unknown> }).properties,
           ).join(", ")}.`;
 
-      const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+      const base = typeof cfg.baseUrl === "function" ? cfg.baseUrl() : cfg.baseUrl;
+      const res = await fetch(`${base}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -365,6 +366,86 @@ export const githubModels = openAiCompatible({
   baseUrl: "https://models.inference.ai.azure.com", defaultModel: "gpt-4o-mini", jsonSchema: true,
 });
 
+/** 40 RPM · no card · 100+ models including large open-weight ones. */
+export const nvidia = openAiCompatible({
+  name: "nvidia", envKey: "NVIDIA_API_KEY", modelEnv: "NVIDIA_MODEL",
+  baseUrl: "https://integrate.api.nvidia.com/v1", defaultModel: "meta/llama-3.3-70b-instruct",
+});
+
+/** 400 RPM authenticated — the highest per-minute allowance of the free tiers. */
+export const ovh = openAiCompatible({
+  name: "ovh", envKey: "OVH_AI_TOKEN", modelEnv: "OVH_MODEL",
+  baseUrl: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", defaultModel: "Meta-Llama-3_3-70B-Instruct",
+});
+
+/** 300 requests/hour on a free Hugging Face account. */
+export const huggingface = openAiCompatible({
+  name: "huggingface", envKey: "HF_TOKEN", modelEnv: "HF_MODEL",
+  baseUrl: "https://router.huggingface.co/v1", defaultModel: "meta-llama/Llama-3.3-70B-Instruct",
+});
+
+/** 20 RPM on Cohere's free trial keys, via their OpenAI-compatible endpoint. */
+export const cohere = openAiCompatible({
+  name: "cohere", envKey: "COHERE_API_KEY", modelEnv: "COHERE_MODEL",
+  baseUrl: "https://api.cohere.ai/compatibility/v1", defaultModel: "command-r-08-2024",
+});
+
+/** Free while in beta, EU-hosted. */
+export const scaleway = openAiCompatible({
+  name: "scaleway", envKey: "SCALEWAY_API_KEY", modelEnv: "SCALEWAY_MODEL",
+  baseUrl: "https://api.scaleway.ai/v1", defaultModel: "llama-3.3-70b-instruct",
+});
+
+export const sambanova = openAiCompatible({
+  name: "sambanova", envKey: "SAMBANOVA_API_KEY", modelEnv: "SAMBANOVA_MODEL",
+  baseUrl: "https://api.sambanova.ai/v1", defaultModel: "Meta-Llama-3.3-70B-Instruct",
+});
+
+export const together = openAiCompatible({
+  name: "together", envKey: "TOGETHER_API_KEY", modelEnv: "TOGETHER_MODEL",
+  baseUrl: "https://api.together.xyz/v1", defaultModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+});
+
+/**
+ * 10,000 neurons/day. The account id is part of the URL, so both it and the
+ * token must be set for this provider to be considered available.
+ */
+export const cloudflare: Provider = {
+  ...openAiCompatible({
+    name: "cloudflare", envKey: "CLOUDFLARE_API_TOKEN", modelEnv: "CLOUDFLARE_MODEL",
+    baseUrl: () => `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`,
+    defaultModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  }),
+  available: () => !!process.env.CLOUDFLARE_API_TOKEN && !!process.env.CLOUDFLARE_ACCOUNT_ID,
+};
+
+/**
+ * 30 RPM with no signup at all — useful as a last-ditch fallback, but it is an
+ * anonymous shared endpoint, so it sits at the end of the chain and is best
+ * treated as "better than nothing" rather than dependable.
+ */
+export const llm7 = openAiCompatible({
+  name: "llm7", envKey: "LLM7_API_KEY", modelEnv: "LLM7_MODEL",
+  baseUrl: "https://api.llm7.io/v1", defaultModel: "gpt-4o-mini-2024-07-18",
+});
+
+/**
+ * Ollama running on your own machine. No key, no quota, no network — the only
+ * provider here that cannot run out. Slower and weaker than the hosted models,
+ * but for pulling labelled dates and numbers out of text a local 7B is often
+ * enough, and it makes a backfill run free and unlimited.
+ *
+ * Set OLLAMA_HOST to enable, e.g. OLLAMA_HOST=http://localhost:11434
+ */
+export const ollama: Provider = {
+  ...openAiCompatible({
+    name: "ollama", envKey: "OLLAMA_HOST", modelEnv: "OLLAMA_MODEL",
+    baseUrl: () => `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/v1`,
+    defaultModel: "qwen2.5:7b-instruct",
+  }),
+  available: () => !!process.env.OLLAMA_HOST,
+};
+
 /** Paid. Last in the chain, and only runs if a key is actually set. */
 export const openai = openAiCompatible({
   name: "openai", envKey: "OPENAI_API_KEY", modelEnv: "OPENAI_MODEL",
@@ -378,12 +459,23 @@ export const openai = openAiCompatible({
  */
 export function providerChain(): Provider[] {
   const all: Record<string, Provider> = {
-    gemini, groq, cerebras, mistral, openrouter, github: githubModels, anthropic, openai,
+    gemini, groq, cerebras, mistral, nvidia, ovh, sambanova, together, scaleway,
+    huggingface, cohere, cloudflare, openrouter, github: githubModels, llm7,
+    ollama, anthropic, openai,
   };
   // Gemini first (reads PDFs, cheapest), then the free text tiers in descending
   // order of daily allowance, then the paid ones if keys exist.
   const configured = (process.env.EXTRACT_PROVIDERS ??
-    "gemini,groq,cerebras,mistral,openrouter,github,anthropic,openai")
+    [
+      "gemini",                                    // reads PDFs, cheapest
+      "groq", "cerebras", "ovh", "nvidia",         // fastest / largest free allowances
+      "mistral", "sambanova", "together", "scaleway",
+      "huggingface", "cohere", "cloudflare",
+      "openrouter", "github",                      // small daily caps, keep late
+      "ollama",                                    // local, unlimited, slower
+      "llm7",                                      // anonymous shared endpoint
+      "anthropic", "openai",                       // paid, only if keys exist
+    ].join(","))
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);

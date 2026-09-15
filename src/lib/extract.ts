@@ -217,9 +217,9 @@ const LABELS = {
 
 const QUAL_ORDER: ReadonlyArray<{ key: string; re: RegExp }> = [
   { key: "phd", re: /(?:ph\.?\s?d|doctorate)/i },
-  { key: "postgraduate", re: /(?:\b(?:m\.?\s?a|m\.?\s?sc|m\.?\s?com|m\.?\s?tech|mba|pg(?:\s?(?:degree|diploma|course))?|post\s?graduat\w*)\b|(?:मास्टर|परास्नातक|स्नातकोत्तर)(?=[\s.,;:।]))/i },
-  { key: "engineering", re: /(?:\b(?:b\.?\s?e|b\.?\s?tech|engineer\w*)\b|अभियांत्रिकी(?=[\s.,;:।]))/i },
-  { key: "graduate", re: /(?:\b(?:graduat\w*|bachelou?\w*|degree|b\.?\s?a|b\.?\s?sc|b\.?\s?com|ll\.?b)\b|स्नातक(?=[\s.,;:।]))/i },
+  { key: "postgraduate", re: /(?:\b(?:m\.\s?a\.?|m\.?\s?sc|m\.?\s?com|m\.?\s?tech|mba|pg(?:\s?(?:degree|diploma|course))?|post\s?graduat\w*)\b|(?:मास्टर|परास्नातक|स्नातकोत्तर)(?=[\s.,;:।]))/i },
+  { key: "engineering", re: /(?:\b(?:b\.\s?e\.?|b\.\s?tech\.?|b\.?\s?tech|engineer\w*)\b|अभियांत्रिकी(?=[\s.,;:।]))/i },
+  { key: "graduate", re: /(?:\b(?:graduat\w*|bachelou?\w*|degree|b\.\s?a\.?|b\.?\s?sc|b\.?\s?com|ll\.?b)\b|स्नातक(?=[\s.,;:।]))/i },
   { key: "diploma", re: /(?:\bdiploma\b|\biti\b|डिप्लोमा(?=[\s.,;:।]))/i },
   { key: "12th", re: /(?:\b(?:12th|12(?:\^|\s)?th|10\+2|intermediate|higher\s?secondary|senior\s?secondary)\b|(?:इंटरमीडिएट|बारहवीं|द्वादश)(?=[\s.,;:।]))/i },
   { key: "10th", re: /(?:\b(?:10th|10(?:\^|\s)?th|matric\w*|high\s?school)\b|(?:दसवीं|मैट्रिक)(?=[\s.,;:।]))/i },
