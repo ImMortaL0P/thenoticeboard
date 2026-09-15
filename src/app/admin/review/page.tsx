@@ -74,6 +74,8 @@ export default async function ReviewQueuePage({ searchParams }: { searchParams: 
                 createdAt={n.createdAt.toISOString()}
                 maxAge={n.maxAge}
                 rejectReason={n.status === "rejected" ? n.rejectReason : null}
+                discoveredUrl={n.discoveredUrl}
+                officialSourceUrl={n.officialSourceUrl}
               />
             </li>
           ))}
