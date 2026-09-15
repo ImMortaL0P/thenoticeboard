@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getT } from "@/lib/i18n-server";
 import { Logo } from "@/components/Logo";
+import { VersionWatcher } from "@/components/VersionWatcher";
 
 export async function Footer() {
+  const version = process.env.NEXT_PUBLIC_APP_VERSION || "dev";
   const { t } = await getT();
   return (
     <footer className="mt-20 border-t-2 border-foreground">
@@ -28,8 +30,9 @@ export async function Footer() {
         </div>
       </div>
       <div className="border-t border-border">
-        <div className="mx-auto max-w-[78rem] px-4 py-4 font-mono text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground sm:px-6">
+        <div className="mx-auto flex max-w-[78rem] items-center justify-between px-4 py-4 font-mono text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground sm:px-6">
           © {new Date().getFullYear()} {t("footer.rights")}
+          <span className="opacity-60 flex gap-2 items-center">v.{version} <VersionWatcher /></span>
         </div>
       </div>
     </footer>

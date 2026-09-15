@@ -74,10 +74,57 @@ async function processDiscoveredLink(
     include: { updates: true },
   });
 
-  const rawText = doc.kind === "pdf" ? doc.text : htmlToText(doc.text);
+  let rawText = doc.kind === "pdf" ? doc.text : htmlToText(doc.text);
+  let effectivePdfBytes = doc.kind === "pdf" ? doc.bytes : null;
+  let hasEmbeddedPdf = false;
+  let officialSourceUrl = link.url;
+
+  // If we fetched an HTML page but it's just a viewer/wrapper for a PDF, fetch the PDF.
+  if (doc.kind === "html") {
+    const $ = cheerio.load(doc.text);
+    let pdfUrl = null;
+    
+    // 1. Look for iframes pointing to PDFs (like SEBI)
+    $("iframe").each((_, el) => {
+      const src = $(el).attr("src");
+      if (src && /\.pdf($|\?)/i.test(src)) {
+        pdfUrl = src;
+      }
+    });
+
+    // 2. If no iframe, check if there's exactly one prominent PDF link on a thin page.
+    if (!pdfUrl && rawText.length < 3000) {
+      const pdfLinks: string[] = [];
+      $("a").each((_, el) => {
+        const href = $(el).attr("href");
+        if (href && /\.pdf($|\?)/i.test(href)) {
+          pdfLinks.push(href);
+        }
+      });
+      // Try to take the only PDF if it's unambiguous
+      if (pdfLinks.length === 1) pdfUrl = pdfLinks[0];
+    }
+
+    if (pdfUrl) {
+      try {
+        const fullPdfUrl = new URL(pdfUrl, link.url).href;
+        console.log(`       chasing embedded pdf: ${fullPdfUrl}`);
+        const subDoc = await fetchDoc(fullPdfUrl);
+        if (subDoc.kind === "pdf") {
+          rawText = rawText + "\n\n[Extracted from embedded PDF:]\n" + subDoc.text;
+          effectivePdfBytes = subDoc.bytes;
+          hasEmbeddedPdf = true;
+          officialSourceUrl = fullPdfUrl; // Treat the PDF as the official source
+        }
+      } catch (err) {
+        console.warn(`       failed to fetch embedded pdf ${pdfUrl}: ${err}`);
+      }
+    }
+  }
+
   const { draft, method, confidence } = await autoExtract({
     text: rawText,
-    pdf: doc.kind === "pdf" ? { bytes: doc.bytes } : null,
+    pdf: effectivePdfBytes ? { bytes: effectivePdfBytes } : null,
     linkText: link.text,
     orgChoices,
   });
@@ -175,10 +222,10 @@ async function processDiscoveredLink(
     advertisementNo: draft.advertisementNo ?? undefined,
     applyUrl: draft.applyUrl ?? undefined,
     officialNotificationPdfUrl:
-      draft.officialNotificationPdfUrl ?? (doc.kind === "pdf" ? link.url : undefined),
+      draft.officialNotificationPdfUrl ?? ((doc.kind === "pdf" || hasEmbeddedPdf) ? officialSourceUrl : undefined),
     // These two fields finally mean what they say: the official document we
     // read and cite, and the page that led us to it.
-    officialSourceUrl: link.url,
+    officialSourceUrl: officialSourceUrl,
     discoveredUrl: link.discoveredVia ?? link.url,
     rawText: rawText.slice(0, MAX_RAW),
     origin: "scraper",

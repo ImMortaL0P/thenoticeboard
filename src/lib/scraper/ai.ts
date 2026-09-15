@@ -229,7 +229,8 @@ export async function autoExtract(input: ExtractInput): Promise<ExtractResult> {
   const chain = providerChain();
   const usable = chain.filter((p) => !exhausted.has(p.name));
   if (chain.length > 0 && usable.length === 0) {
-    throw new AllProvidersExhausted(chain.map((p) => p.name));
+    console.warn(`  every extraction provider is out of quota (${chain.map((p) => p.name).join(", ")}). falling back to rules`);
+    return { ...rulesResult, method: "rules-fallback-quota" };
   }
   // No model configured at all — the regex rules are the whole pipeline, and
   // that is a deliberate local-only mode rather than a failure.
@@ -292,12 +293,16 @@ export async function autoExtract(input: ExtractInput): Promise<ExtractResult> {
   // read it right now. Tell the caller to try again rather than writing rules
   // output over a real notice.
   if (chain.length > 0 && chain.every((p) => exhausted.has(p.name))) {
-    throw new AllProvidersExhausted(chain.map((p) => p.name));
+    console.warn(`  every extraction provider is out of quota (${chain.map((p) => p.name).join(", ")}). falling back to rules`);
+    return { ...rulesResult, method: "rules-fallback-quota" };
   }
-  if (!sawPermanentFailure) throw new ExtractionUnavailable(attempts);
+  if (!sawPermanentFailure) {
+    console.warn(`  all providers unavailable (${attempts.join("; ")}) — falling back to rules`);
+    return { ...rulesResult, method: "rules-fallback-unavailable" };
+  }
 
   console.warn(`  all providers failed (${attempts.join("; ")}) — falling back to rules`);
-  return rulesResult;
+  return { ...rulesResult, method: "rules-fallback-failed" };
 }
 
 /** Model calls made so far this process, for end-of-run summaries. */
