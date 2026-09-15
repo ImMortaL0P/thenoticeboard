@@ -13,6 +13,7 @@ import { allLinks, discoverLinks, discoverFromFeed, discoverPaginationUrls, look
 import { autoExtract, scoreConfidence, ExtractionUnavailable, AllProvidersExhausted } from "./ai";
 import { getNextNotificationSerialNumber } from "../serial";
 import { organizationChoices, resolveOrganization, unassignedOrg, learnDomain, isOfficialUrl } from "../orgs";
+import { daysBetween } from "../domain";
 
 export type SourceWithOrg = Prisma.SourceGetPayload<{ include: { organization: true } }>;
 export type RunResult = {
@@ -62,7 +63,7 @@ async function processDiscoveredLink(
   link: DiscoveredItem,
   doc: FetchedDoc,
   orgChoices: { shortName: string; name: string }[],
-): Promise<"new" | "extended" | "already_handled"> {
+): Promise<"new" | "extended" | "already_handled" | "skipped_old"> {
   // Belt and braces: the aggregator hop should already have filtered these out,
   // but nothing unverifiable gets written even if a future caller forgets.
   if (source.trust === "aggregator" && !(await isOfficialUrl(link.url))) {
@@ -128,6 +129,12 @@ async function processDiscoveredLink(
     linkText: link.text,
     orgChoices,
   });
+
+  // Pre-check for very old notifications
+  if (draft.applyLast && daysBetween(draft.applyLast) < -15) {
+    console.log(`       skipping old notification (deadline ${draft.applyLast})`);
+    return "skipped_old";
+  }
 
   if (existing) {
     if (draft.applyLast && existing.applyLast && draft.applyLast > existing.applyLast) {
@@ -347,6 +354,7 @@ export async function ingestLinks(
       const action = await processDiscoveredLink(source, link, doc, orgChoices);
       if (action === "new") newItems++;
       if (action === "extended") extendedItems++;
+      if (action === "skipped_old") skipped++;
       await markSeen();
     } catch (err) {
       if (err instanceof AllProvidersExhausted) {

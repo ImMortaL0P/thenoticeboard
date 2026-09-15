@@ -105,14 +105,15 @@ const DATE_PATTERN = new RegExp(
 );
 
 /** Parse the first date appearing in `text`, or null. */
-export function findDate(text: string): string | null {
+export function findAllDates(text: string): string[] {
   DATE_PATTERN.lastIndex = 0;
   let m: RegExpExecArray | null;
+  const found: string[] = [];
   while ((m = DATE_PATTERN.exec(text))) {
     // numeric d/m/y
     if (m[1] && m[2] && m[3]) {
       const got = buildDate(Number(m[1]), Number(m[2]), Number(m[3]));
-      if (got) return got;
+      if (got) found.push(got);
       continue;
     }
     // d Month y
@@ -121,7 +122,7 @@ export function findDate(text: string): string | null {
       const mo = MONTHS[key.slice(0, 4)] ?? MONTHS[key.slice(0, 3)] ?? MONTH_HI[m[5]];
       if (mo) {
         const got = buildDate(Number(m[4]), mo, Number(m[6]));
-        if (got) return got;
+        if (got) found.push(got);
       }
       continue;
     }
@@ -131,17 +132,22 @@ export function findDate(text: string): string | null {
       const mo = MONTHS[key.slice(0, 4)] ?? MONTHS[key.slice(0, 3)];
       if (mo) {
         const got = buildDate(Number(m[8]), mo, Number(m[9]));
-        if (got) return got;
+        if (got) found.push(got);
       }
       continue;
     }
     // ISO
     if (m[10] && m[11] && m[12]) {
       const got = buildDate(Number(m[12]), Number(m[11]), Number(m[10]));
-      if (got) return got;
+      if (got) found.push(got);
     }
   }
-  return null;
+  return found;
+}
+
+export function findDate(text: string): string | null {
+  const all = findAllDates(text);
+  return all.length > 0 ? all[0] : null;
 }
 
 /**
@@ -152,28 +158,42 @@ export function findDate(text: string): string | null {
  * we return null rather than reach for it — a missing date is reviewable, a
  * wrong one gets published.
  */
-function labelledDate(text: string, label: RegExp, window = 140): string | null {
+function labelledDate(text: string, label: RegExp, window = 140, mode: "first" | "max" | "min" = "first"): string | null {
   const re = new RegExp(label.source, label.flags.includes("g") ? label.flags : `${label.flags}g`);
   let m: RegExpExecArray | null;
+  
+  // To handle variations where the date is slightly before the noun in Hindi,
+  // we expand the window slightly backwards.
+  // Actually the original code just slices forward: text.slice(m.index + m[0].length, ...)
+  // But wait, my previous run (or the default) was slicing forward. Let's keep it but grab all dates.
+  
   while ((m = re.exec(text))) {
-    const slice = text.slice(m.index + m[0].length, m.index + m[0].length + window);
-    const found = findDate(slice);
-    if (found) return found;
+    // For Hindi and some English formats, the date might be just before the label
+    const start = Math.max(0, m.index - 25);
+    const slice = text.slice(start, m.index + m[0].length + window);
+    const dates = findAllDates(slice);
+    if (dates.length > 0) {
+      if (mode === "max") {
+        return dates.sort((a,b) => (a > b ? -1 : 1))[0];
+      }
+      if (mode === "min") {
+        return dates.sort((a,b) => (a < b ? -1 : 1))[0];
+      }
+      return dates[0];
+    }
   }
   return null;
 }
 
 const LABELS = {
   applyLast:
-    /(?:last\s+date|closing\s+date|last\s+day|final\s+date)[^.\n]{0,60}?(?:appl|submi|registration|online|receipt)?|(?:आवेदन\s*(?:की)?\s*अंतिम\s*तिथि)|(?:अंतिम\s*तिथि)/i,
+    /(?:last\s+date|closing\s+date|last\s+day|final\s+date)[^.\n]{0,60}?(?:appl|submi|registration|online|receipt)?|(?:registration|application)(?:[^.\n]{0,60})?(?:closes?|ends?|till)|(?:आवेदन\s*(?:की)?\s*अंतिम\s*तिथि)|(?:अंतिम\s*तिथि)/i,
   applyStart:
-    /(?:date\s+of\s+)?(?:commencement|opening|start(?:ing)?)\s*(?:date)?[^.\n]{0,40}?(?:appl|online|registration)?|(?:appl\w*\s+(?:begin|start|open)\w*)|(?:online\s+application\s+from)|(?:प्रारंभ\s*तिथि)|(?:आवेदन\s*प्रारंभ)/i,
+    /(?:date\s+of\s+)?(?:commencement|opening|start(?:ing)?)\s*(?:date)?[^.\n]{0,40}?(?:appl|online|registration)?|(?:appl\w*\s+(?:begin|start|open)\w*)|(?:online\s+application\s+from)|(?:registration|application)(?:[^.\n]{0,80})?(?:from|starts?|begins?|commences?|schedule|opening|:)|(?:प्रारंभ\s*तिथि)|(?:आवेदन\s*प्रारंभ)/i,
   feeLast:
     /last\s+date[^.\n]{0,40}?(?:fee|payment|challan)|fee\s+payment[^.\n]{0,30}last\s+date|शुल्क[^।\n]{0,25}अंतिम\s*तिथि/i,
   examDate:
     /date\s+of\s+(?:exam\w*|test|written)|exam\w*\s+(?:date|scheduled)|tentative\s+date\s+of\s+exam\w*|परीक्षा\s*(?:की)?\s*तिथि/i,
-  // Hindi puts the date between the noun and the verb ("अधिसूचना 10/11/2025 को
-  // जारी की गई"), so the label is the noun alone and the window finds the date.
   notificationDate:
     /date\s+of\s+(?:notification|advertisement|issue|publication)|notification\s+(?:released|dated|issued)|advertisement\s+dated|dated\s*:|अधिसूचना|विज्ञापन\s*दिनांक/i,
 };
@@ -351,8 +371,8 @@ export function extractFromText(raw: string, fallbackTitle: string | null): Noti
   const { min, max } = detectAge(text);
   const { feeGeneral, feeReserved } = detectFees(text);
 
-  const applyLast = labelledDate(text, LABELS.applyLast);
-  const applyStart = labelledDate(text, LABELS.applyStart);
+  const applyLast = labelledDate(text, LABELS.applyLast, 140, "max");
+  const applyStart = labelledDate(text, LABELS.applyStart, 140, "min");
   let notificationDate = labelledDate(text, LABELS.notificationDate);
 
   // A notification cannot be issued after its own closing date; if the labelled
@@ -381,4 +401,4 @@ export function extractFromText(raw: string, fallbackTitle: string | null): Noti
 }
 
 /** Exposed for the rules-first gate in ai.ts and for tests. */
-export const __internals = { findDate, labelledDate, LABELS, detectAdvertisementNo, detectPayLevel };
+export const __internals = { findDate, findAllDates, labelledDate, LABELS, detectAdvertisementNo, detectPayLevel };
