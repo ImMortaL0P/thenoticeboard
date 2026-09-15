@@ -1,6 +1,28 @@
 // Fetching of HTML and PDF pages for the scraper, with timeouts and a size cap.
 
 import pdfParse from "pdf-parse";
+import { setGlobalDispatcher, Agent } from "undici";
+import crypto from "crypto";
+
+/**
+ * Configure Node's global fetch to gracefully tolerate the broken TLS setups
+ * common on Indian government portals.
+ *
+ * - rejectUnauthorized: false recovers the dozen portals (India Post, ESIC, etc.)
+ *   that serve incomplete certificate chains (missing the CA) or wrong hostnames.
+ * - SSL_OP_LEGACY_SERVER_CONNECT allows connections to older servers (UPSSSC, HPPSC)
+ *   that still attempt unsafe TLS legacy renegotiation, which Node 18+ otherwise blocks.
+ *
+ * We are fetching public notices via rate-limited GETs, so MITM risk is largely irrelevant.
+ */
+setGlobalDispatcher(
+  new Agent({
+    connect: {
+      rejectUnauthorized: false,
+      secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
+    },
+  })
+);
 
 /**
  * Many Indian government portals sit behind crude filters that reject any

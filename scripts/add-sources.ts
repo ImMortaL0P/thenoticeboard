@@ -54,6 +54,12 @@ const CANDIDATES: Candidate[] = [
   { name: "EPFO — Recruitment", url: "https://www.epfindia.gov.in/site_en/Recruitments.php", sector: "central_govt" },
   { name: "Supreme Court of India — Recruitment", url: "https://www.sci.gov.in/recruitment/", sector: "central_govt" },
   { name: "Delhi High Court — Recruitment", url: "https://delhihighcourt.nic.in/recruitment", sector: "central_govt", org: "DELHIHC" },
+  { name: "AAI — Careers", url: "https://www.aai.aero/en/careers/recruitment", sector: "psu" },
+  { name: "FCI — Recruitment", url: "https://fci.gov.in/recruitments.php", sector: "central_govt" },
+  { name: "FSSAI — Careers", url: "https://fssai.gov.in/jobs.php", sector: "central_govt" },
+  { name: "BIS — Recruitment", url: "https://www.bis.gov.in/index.php/recruitment", sector: "central_govt" },
+  { name: "C-DAC — Careers", url: "https://www.cdac.in/index.aspx?id=careers", sector: "central_govt" },
+  { name: "NIMHANS — Vacancies", url: "https://nimhans.ac.in/vacancy/", sector: "central_govt" },
 
   // ---- Banking & insurance ----
   { name: "IBPS — Announcements", url: "https://www.ibps.in/", sector: "banking_insurance", org: "IBPS" },
@@ -100,7 +106,7 @@ const CANDIDATES: Candidate[] = [
   { name: "BHEL — Careers", url: "https://www.bhel.com/careers", sector: "psu" },
 
   // ---- State public service commissions ----
-  { name: "BPSC — Advertisements", url: "https://www.bpsc.bihar.gov.in/", sector: "state_psc", org: "BPSC" },
+  { name: "BPSC — Advertisements", url: "https://bpsc.bihar.gov.in/", sector: "state_psc", org: "BPSC" },
   { name: "BPSSC — Advertisements", url: "https://bpssc.bihar.gov.in/", sector: "state_psc", org: "BPSSC" },
   { name: "UPPSC — Advertisements", url: "https://uppsc.up.nic.in/Notifications.aspx", sector: "state_psc", org: "UPPSC" },
   { name: "UPSSSC — Advertisements", url: "https://upsssc.gov.in/AllNotifications.aspx", sector: "state_psc", org: "UPSSSC" },
@@ -110,7 +116,7 @@ const CANDIDATES: Candidate[] = [
   { name: "MPSC Maharashtra", url: "https://mpsc.gov.in/", sector: "state_psc" },
   { name: "TNPSC — Notifications", url: "https://www.tnpsc.gov.in/English/Notification.aspx", sector: "state_psc" },
   { name: "KPSC Karnataka", url: "https://kpsc.kar.nic.in/", sector: "state_psc" },
-  { name: "TSPSC Telangana", url: "https://www.tspsc.gov.in/", sector: "state_psc" },
+  { name: "TSPSC Telangana", url: "https://tspsc.gov.in/", sector: "state_psc" },
   { name: "APPSC Andhra Pradesh", url: "https://psc.ap.gov.in/", sector: "state_psc" },
   { name: "WBPSC West Bengal", url: "https://wbpsc.gov.in/", sector: "state_psc" },
   { name: "JPSC Jharkhand", url: "https://jpsc.gov.in/", sector: "state_psc" },
