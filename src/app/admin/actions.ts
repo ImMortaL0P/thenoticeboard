@@ -340,3 +340,62 @@ export async function broadcastTelegramAction(_: ActionState, form: FormData): P
 
   return { ok: true, message: `Broadcasted successfully to ${successCount} user(s).` };
 }
+
+// ---------------------------------------------------------------------------
+// Local verification agent
+//
+// A web page cannot start a process on the admin's laptop — browsers have no
+// such power, and that is a boundary worth keeping. So the button does not
+// "start Ollama". It records a request; an agent the admin is already running
+// (`npm run agent`) polls for it and does the work. The panel shows whether any
+// agent is listening, so the button is never a lie about what will happen.
+
+const HEARTBEAT_KEY = "agent:heartbeat";
+const REQUEST_KEY = "agent:request";
+const STATUS_KEY = "agent:status";
+
+export type AgentState = {
+  online: boolean;
+  lastSeenSeconds: number | null;
+  status: { state?: string; published?: number; review?: number; rejected?: number; message?: string } | null;
+  requestedAt: string | null;
+};
+
+/** An agent that has not checked in for a minute is treated as gone. */
+const ONLINE_WINDOW_MS = 60_000;
+
+export async function getAgentState(): Promise<AgentState> {
+  await requireStaff();
+  const [beat, status, request] = await Promise.all([
+    prisma.keyValue.findUnique({ where: { key: HEARTBEAT_KEY } }),
+    prisma.keyValue.findUnique({ where: { key: STATUS_KEY } }),
+    prisma.keyValue.findUnique({ where: { key: REQUEST_KEY } }),
+  ]);
+
+  const lastSeenMs = beat ? Date.now() - Date.parse(beat.value) : null;
+  let parsed: AgentState["status"] = null;
+  try {
+    parsed = status ? JSON.parse(status.value) : null;
+  } catch {
+    parsed = null;
+  }
+
+  return {
+    online: lastSeenMs !== null && lastSeenMs < ONLINE_WINDOW_MS,
+    lastSeenSeconds: lastSeenMs === null ? null : Math.round(lastSeenMs / 1000),
+    status: parsed,
+    requestedAt: request?.value ?? null,
+  };
+}
+
+/** Queue a verification pass for whichever agent is listening. */
+export async function requestAgentRun(): Promise<void> {
+  await requireStaff();
+  const now = new Date().toISOString();
+  await prisma.keyValue.upsert({
+    where: { key: REQUEST_KEY },
+    create: { key: REQUEST_KEY, value: now },
+    update: { value: now },
+  });
+  revalidatePath("/admin/review");
+}

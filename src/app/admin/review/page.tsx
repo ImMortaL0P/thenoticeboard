@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/domain";
 import { ReviewQueueList } from "@/components/ReviewQueueList";
+import { AgentPanel } from "@/components/AgentPanel";
+import { getAgentState, requestAgentRun } from "@/app/admin/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,8 @@ export default async function ReviewQueuePage({ searchParams }: { searchParams: 
     take: 100,
   });
 
+  const agent = await getAgentState();
+
   const counts = await Promise.all(
     tabs.map(async (t) => ({ key: t.key, n: await prisma.notification.count({ where: { status: t.key } }) })),
   );
@@ -35,6 +39,19 @@ export default async function ReviewQueuePage({ searchParams }: { searchParams: 
           Scraped and submitted notices land here as drafts. Nothing is ever auto-published.
         </p>
       </div>
+
+      <AgentPanel
+        state={agent}
+        onRun={async () => {
+          "use server";
+          await requestAgentRun();
+        }}
+        onRefresh={async () => {
+          "use server";
+          const { revalidatePath } = await import("next/cache");
+          revalidatePath("/admin/review");
+        }}
+      />
 
       <div className="flex gap-1">
         {tabs.map((t) => {

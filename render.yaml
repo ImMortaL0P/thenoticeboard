@@ -1,3 +1,11 @@
+# Render background worker — the scheduled scraper, discovery sweep and
+# maintenance. The Next.js site itself is on Vercel and needs its own copy of
+# the shared variables (see the note at the bottom).
+#
+# `sync: false` means "prompt me for this in the dashboard, never store it in
+# git" — that is every secret. Non-secret tuning is written inline so the
+# scheduler behaves identically to local without anyone re-typing numbers.
+
 services:
   - type: worker
     name: thenoticeboard-scraper
@@ -5,7 +13,87 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm run worker
     envVars:
+      # ---- required ------------------------------------------------------
       - key: DATABASE_URL
         sync: false
+      - key: SITE_URL
+        sync: false
+
+      # ---- AI providers: set whichever you have -------------------------
+      # The cascade skips any provider with an empty key, so leaving one blank
+      # is a valid configuration, not a broken one.
       - key: GEMINI_API_KEY
         sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: OVH_AI_TOKEN
+        sync: false
+
+      # ---- Telegram (optional; the bot only starts if a token is set) ----
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+
+      # ---- date constraints: what counts as a current notice -------------
+      - key: NOTICE_MAX_DAYS_PAST
+        value: "7"
+      - key: NOTICE_HARD_EXPIRY_DAYS
+        value: "15"
+      - key: NOTICE_MAX_AGE_DAYS
+        value: "180"
+      - key: NOTICE_MAX_DAYS_FUTURE
+        value: "400"
+
+      # ---- extraction tuning ---------------------------------------------
+      - key: RULES_TRUST_MIN
+        value: "60"
+      - key: MAX_PDF_INLINE_BYTES
+        value: "4194304"
+      - key: EXTRACT_TIMEOUT_MS
+        value: "60000"
+      - key: EXTRACT_BUDGET_MS
+        value: "180000"
+      - key: SCRAPE_MAX_NEW_PER_SOURCE
+        value: "25"
+      - key: SCRAPE_MAX_AGGREGATOR_HOPS
+        value: "15"
+
+      # ---- schedule (IST) -------------------------------------------------
+      - key: GEMINI_DISCOVERY_HOUR_IST
+        value: "15"
+      - key: MAINTENANCE_HOUR_IST
+        value: "9"
+
+      # ---- publishing ------------------------------------------------------
+      # Off until you have watched several verification passes and trust the
+      # confidence scores. A wrong closing date on a published notice costs a
+      # candidate an application.
+      - key: AUTO_PUBLISH
+        value: "0"
+      - key: AUTO_PUBLISH_MIN_CONFIDENCE
+        value: "85"
+
+      # NOTE: OLLAMA_HOST is deliberately absent. The worker runs in Render's
+      # cloud and cannot reach a laptop; setting it would only add a dead
+      # provider to every cascade.
+
+# ---------------------------------------------------------------------------
+# Vercel (the website) needs its own variables. The admin "Run now" and review
+# actions execute server-side there, so it needs the AI keys too — not only the
+# worker:
+#   DATABASE_URL, AUTH_SECRET, SITE_URL, ADMIN_EMAIL, ADMIN_PASSWORD
+#   GEMINI_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY, MISTRAL_API_KEY,
+#   OPENROUTER_API_KEY
+#   NOTICE_* and RULES_TRUST_MIN, so a manual run applies the same rules
+# ---------------------------------------------------------------------------

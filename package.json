@@ -22,7 +22,9 @@
     "tiers": "tsx scripts/set-source-tiers.ts",
     "backfill": "tsx scripts/backfill-notices.ts",
     "test:providers": "tsx scripts/test-providers.ts",
-    "sources:add": "tsx scripts/add-sources.ts"
+    "sources:add": "tsx scripts/add-sources.ts",
+    "verify": "tsx scripts/verify-queue.ts",
+    "agent": "tsx scripts/verify-queue.ts --watch --apply"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",
