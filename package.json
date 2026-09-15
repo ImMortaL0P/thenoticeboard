@@ -24,7 +24,9 @@
     "test:providers": "tsx scripts/test-providers.ts",
     "sources:add": "tsx scripts/add-sources.ts",
     "verify": "tsx scripts/verify-queue.ts",
-    "agent": "tsx scripts/verify-queue.ts --watch --apply"
+    "agent": "tsx scripts/verify-queue.ts --watch --apply",
+    "repair:local": "tsx scripts/verify-queue.ts --all --local-only --apply",
+    "models": "tsx scripts/list-models.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",

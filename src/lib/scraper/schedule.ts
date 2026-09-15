@@ -1,3 +1,4 @@
+import { envNum } from "../env";
 // Scrape scheduling by tier and timeslot.
 //
 // Two dials, not one. `everyHours` stops a source being hammered; `hoursIST`
@@ -135,7 +136,7 @@ export function isDue(
  * one grounded-search call plus a batch of extractions, run when the models are
  * least contended.
  */
-export const GEMINI_DISCOVERY_HOUR_IST = Number(process.env.GEMINI_DISCOVERY_HOUR_IST ?? 15);
+export const GEMINI_DISCOVERY_HOUR_IST = envNum("GEMINI_DISCOVERY_HOUR_IST", 15);
 
 /** IST hour at which closed notices are swept and deadline alerts fire. */
-export const MAINTENANCE_HOUR_IST = Number(process.env.MAINTENANCE_HOUR_IST ?? 9);
+export const MAINTENANCE_HOUR_IST = envNum("MAINTENANCE_HOUR_IST", 9);

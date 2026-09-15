@@ -12,6 +12,7 @@
 // Anthropic a forced tool call.
 
 import { SECTORS, QUALIFICATIONS, NOTICE_TYPES } from "../domain";
+import { env, envNum, envOr } from "../env";
 
 export const UNKNOWN = "unknown";
 
@@ -168,7 +169,7 @@ const TEXT_CAP = 120_000;
  * could silently occupy 20+ minutes on one document. A model that has not
  * answered in a minute is not about to.
  */
-export const CALL_TIMEOUT_MS = Number(process.env.EXTRACT_TIMEOUT_MS ?? 60_000);
+export const CALL_TIMEOUT_MS = envNum("EXTRACT_TIMEOUT_MS", 60_000);
 
 /**
  * Above this size a PDF is not sent inline, even when its text layer is poor.
@@ -178,7 +179,73 @@ export const CALL_TIMEOUT_MS = Number(process.env.EXTRACT_TIMEOUT_MS ?? 60_000);
  * Sending the local text instead is worse extraction on one document; sending
  * the PDF is no extraction at all on the fifty that follow.
  */
-export const MAX_PDF_INLINE_BYTES = Number(process.env.MAX_PDF_INLINE_BYTES ?? 4 * 1024 * 1024);
+export const MAX_PDF_INLINE_BYTES = envNum("MAX_PDF_INLINE_BYTES", 4 * 1024 * 1024);
+
+/**
+ * Model slugs rot.
+ *
+ * Every hardcoded default in this file will be retired by its provider sooner
+ * or later — Groq, Cerebras and OpenRouter each dropped a llama-3.3 slug within
+ * months. Rather than guess again, a provider that answers "model not found"
+ * asks its own /models endpoint what it actually serves, picks the best match
+ * and retries. The configured default becomes a hint, not a hard dependency.
+ */
+const resolvedModels = new Map<string, string>();
+
+function modelNotFound(status: number, body: string): boolean {
+  if (status !== 404 && status !== 400) return false;
+  return /model_not_found|does not exist|model.{0,20}unavailable|invalid_model|no models provided|unknown model/i.test(body);
+}
+
+/**
+ * Score a model slug for "can it follow a JSON schema over a long document".
+ *
+ * Prefers instruction-tuned chat models at a useful size, and rejects anything
+ * that is not a text generator at all — an embedding or speech model answering
+ * a chat request fails in confusing ways.
+ */
+function scoreModel(id: string): number {
+  const m = id.toLowerCase();
+  if (/embed|whisper|tts|speech|rerank|guard|moderat|vision|image|diffus|bge|clip/.test(m)) return -1;
+  let score = 0;
+  if (/instruct|chat|-it\b/.test(m)) score += 30;
+  if (/llama|qwen|mistral|gemma|deepseek|gpt|phi|command/.test(m)) score += 20;
+  // Bigger is better for instruction-following, up to a point.
+  const size = m.match(/(\d{1,3})\s*b\b/);
+  if (size) {
+    const b = Number(size[1]);
+    score += b >= 200 ? 22 : b >= 60 ? 25 : b >= 20 ? 18 : b >= 7 ? 12 : 4;
+  }
+  if (/:free\b|free/.test(m)) score += 15;  // free variants matter on paid-tier routers
+  if (/preview|alpha|beta|experimental|deprecated/.test(m)) score -= 12;
+  if (/nano|tiny|mini|1b\b|0\.5b/.test(m)) score -= 6;
+  return score;
+}
+
+/** Ask a provider what it currently serves, best candidate first. */
+export async function listModels(cfg: { name: string; baseUrl: string; apiKey?: string; extraHeaders?: Record<string, string> }): Promise<string[]> {
+  try {
+    const res = await fetch(`${cfg.baseUrl}/models`, {
+      headers: {
+        ...(cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {}),
+        ...(cfg.extraHeaders ?? {}),
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const ids: string[] = (data.data ?? data.models ?? [])
+      .map((m: { id?: string; name?: string }) => m.id ?? m.name)
+      .filter((x: unknown): x is string => typeof x === "string");
+    return ids
+      .map((id) => ({ id, score: scoreModel(id) }))
+      .filter((x) => x.score >= 0)
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.id);
+  } catch {
+    return [];
+  }
+}
 
 /** Model calls made this process, for the run summary. */
 export const usage = { calls: 0, byProvider: {} as Record<string, number> };
@@ -192,11 +259,11 @@ export function countCall(provider: string) {
 export const gemini: Provider = {
   name: "gemini",
   readsPdf: true,
-  available: () => !!process.env.GEMINI_API_KEY,
+  available: () => !!env("GEMINI_API_KEY"),
   async call(input) {
     // Pin a concrete version rather than a "-latest" alias: aliases point at the
     // newest model, which is also the most contended.
-    const model = process.env.GEMINI_MODEL ?? "gemini-flash-latest";
+    const model = envOr("GEMINI_MODEL", "gemini-flash-latest");
     const parts: unknown[] = [];
     if (input.pdf) {
       parts.push({ inline_data: { mime_type: "application/pdf", data: input.pdf.bytes.toString("base64") } });
@@ -206,7 +273,7 @@ export const gemini: Provider = {
     parts.push({ text: buildPrompt(input.orgChoices) });
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env("GEMINI_API_KEY")}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -236,10 +303,10 @@ export const gemini: Provider = {
 export const anthropic: Provider = {
   name: "anthropic",
   readsPdf: true,
-  available: () => !!process.env.ANTHROPIC_API_KEY,
+  available: () => !!env("ANTHROPIC_API_KEY"),
   async call(input) {
     countCall("anthropic");
-    const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
+    const model = envOr("ANTHROPIC_MODEL", "claude-sonnet-4-5");
     const content: unknown[] = [];
     if (input.pdf) {
       content.push({
@@ -257,7 +324,7 @@ export const anthropic: Provider = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY!,
+        "x-api-key": env("ANTHROPIC_API_KEY")!,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -312,10 +379,11 @@ function openAiCompatible(cfg: {
   return {
     name: cfg.name,
     readsPdf: false,
-    available: () => !!process.env[cfg.envKey] || !!cfg.anonymousOk,
+    available: () => !!env(cfg.envKey) || !!cfg.anonymousOk,
     async call(input) {
       countCall(cfg.name);
-      const model = process.env[cfg.modelEnv] ?? cfg.defaultModel;
+      const model = envOr(cfg.modelEnv, cfg.defaultModel);
+      const base = typeof cfg.baseUrl === "function" ? cfg.baseUrl() : cfg.baseUrl;
       const schema = jsonSchema(input.orgChoices);
       const responseFormat = cfg.jsonSchema
         ? { type: "json_schema", json_schema: { name: "notice", strict: true, schema } }
@@ -326,30 +394,58 @@ function openAiCompatible(cfg: {
             (schema as { properties: Record<string, unknown> }).properties,
           ).join(", ")}.`;
 
-      const base = typeof cfg.baseUrl === "function" ? cfg.baseUrl() : cfg.baseUrl;
-      const res = await fetch(`${base}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Anonymous tiers reject a malformed Authorization header, so it is
-          // sent only when a key actually exists.
-          ...(process.env[cfg.envKey] ? { Authorization: `Bearer ${process.env[cfg.envKey]}` } : {}),
-          ...(cfg.extraHeaders ?? {}),
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          response_format: responseFormat,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: input.text.slice(0, 40_000) },
-          ],
-        }),
-        signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-      }).catch((e) => {
-        throw new ProviderError(String(e), 0, cfg.name);
-      });
-      if (!res.ok) throw new ProviderError((await res.text()).slice(0, 200), res.status, cfg.name);
+      const send = (useModel: string) =>
+        fetch(`${base}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            // Anonymous tiers reject a malformed Authorization header, so it is
+            // sent only when a key actually exists.
+            ...(env(cfg.envKey) ? { Authorization: `Bearer ${env(cfg.envKey)}` } : {}),
+            ...(cfg.extraHeaders ?? {}),
+          },
+          body: JSON.stringify({
+            model: useModel,
+            temperature: 0,
+            response_format: responseFormat,
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: input.text.slice(0, 40_000) },
+            ],
+          }),
+          signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+        }).catch((e) => {
+          throw new ProviderError(String(e), 0, cfg.name);
+        });
+
+      const chosen = resolvedModels.get(cfg.name) ?? model;
+      let res = await send(chosen);
+
+      // The slug is gone. Ask the provider what it serves today, take the best
+      // candidate, and remember it for the rest of this process.
+      if (!res.ok) {
+        const body = await res.text();
+        if (modelNotFound(res.status, body) && !resolvedModels.has(cfg.name)) {
+          const candidates = await listModels({
+            name: cfg.name,
+            baseUrl: base,
+            apiKey: env(cfg.envKey),
+            extraHeaders: cfg.extraHeaders,
+          });
+          for (const candidate of candidates.slice(0, 3)) {
+            if (candidate === chosen) continue;
+            const retry = await send(candidate);
+            if (retry.ok) {
+              console.warn(`  ${cfg.name}: "${chosen}" is no longer served — using "${candidate}"`);
+              resolvedModels.set(cfg.name, candidate);
+              res = retry;
+              break;
+            }
+          }
+        }
+        if (!res.ok) throw new ProviderError(body.slice(0, 200), res.status, cfg.name);
+      }
+
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content;
       if (!content) throw new ProviderError("no content", 0, cfg.name);
@@ -380,7 +476,7 @@ export const mistral = openAiCompatible({
 export const openrouter = openAiCompatible({
   name: "openrouter", envKey: "OPENROUTER_API_KEY", modelEnv: "OPENROUTER_MODEL",
   baseUrl: "https://openrouter.ai/api/v1", defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
-  extraHeaders: { "HTTP-Referer": process.env.SITE_URL ?? "https://thenoticeboard.in", "X-Title": "thenoticeboard" },
+  extraHeaders: { "HTTP-Referer": envOr("SITE_URL", "https://thenoticeboard.in"), "X-Title": "thenoticeboard" },
 });
 
 /** 10-15 RPM · 50-150/day · free with any GitHub account. Small but high quality. */
@@ -443,10 +539,10 @@ export const together = openAiCompatible({
 export const cloudflare: Provider = {
   ...openAiCompatible({
     name: "cloudflare", envKey: "CLOUDFLARE_API_TOKEN", modelEnv: "CLOUDFLARE_MODEL",
-    baseUrl: () => `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`,
+    baseUrl: () => `https://api.cloudflare.com/client/v4/accounts/${env("CLOUDFLARE_ACCOUNT_ID")}/ai/v1`,
     defaultModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   }),
-  available: () => !!process.env.CLOUDFLARE_API_TOKEN && !!process.env.CLOUDFLARE_ACCOUNT_ID,
+  available: () => !!env("CLOUDFLARE_API_TOKEN") && !!env("CLOUDFLARE_ACCOUNT_ID"),
 };
 
 /**
@@ -456,7 +552,7 @@ export const cloudflare: Provider = {
  */
 export const llm7 = openAiCompatible({
   name: "llm7", envKey: "LLM7_API_KEY", modelEnv: "LLM7_MODEL",
-  baseUrl: "https://api.llm7.io/v1", defaultModel: "gpt-4o-mini-2024-07-18",
+  baseUrl: "https://api.llm7.io/v1", defaultModel: "gpt-4.1-nano-2025-04-14",
   anonymousOk: true,
 });
 
@@ -471,10 +567,10 @@ export const llm7 = openAiCompatible({
 export const ollama: Provider = {
   ...openAiCompatible({
     name: "ollama", envKey: "OLLAMA_HOST", modelEnv: "OLLAMA_MODEL",
-    baseUrl: () => `${process.env.OLLAMA_HOST ?? "http://localhost:11434"}/v1`,
-    defaultModel: "qwen2.5:7b-instruct",
+    baseUrl: () => `${envOr("OLLAMA_HOST", "http://localhost:11434")}/v1`,
+    defaultModel: "noticeboard",
   }),
-  available: () => !!process.env.OLLAMA_HOST,
+  available: () => !!env("OLLAMA_HOST"),
 };
 
 /** Paid. Last in the chain, and only runs if a key is actually set. */
@@ -496,7 +592,7 @@ export function providerChain(): Provider[] {
   };
   // Gemini first (reads PDFs, cheapest), then the free text tiers in descending
   // order of daily allowance, then the paid ones if keys exist.
-  const configured = (process.env.EXTRACT_PROVIDERS ??
+  const configured = (env("EXTRACT_PROVIDERS") ??
     [
       "gemini",                                    // reads PDFs, cheapest
       "groq", "cerebras", "ovh", "nvidia",         // fastest / largest free allowances

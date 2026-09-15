@@ -1,3 +1,4 @@
+import { envOr } from "../env";
 // Gemini-backed discovery: a safety net, not a source of truth.
 //
 // The model is used for exactly one thing — proposing URLs of recruitment
@@ -8,7 +9,7 @@
 // hallucinated deadline cannot reach the board, because the model's prose is
 // never stored.
 
-const MODEL = process.env.GEMINI_DISCOVERY_MODEL ?? "gemini-flash-latest";
+const MODEL = envOr("GEMINI_DISCOVERY_MODEL", "gemini-flash-latest");
 
 export type Candidate = { url: string; title: string | null };
 

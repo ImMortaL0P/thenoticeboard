@@ -38,7 +38,9 @@ const KEY_ENV: Record<string, string> = {
 };
 
 function envFor(p: Provider): string {
-  return `${KEY_ENV[p.name] ?? "?"} set`;
+  const key = (KEY_ENV[p.name] ?? "?").split(" ")[0];
+  const set = !!process.env[key]?.trim();
+  return set ? `${key} set` : `${key} not set — anonymous tier`;
 }
 
 async function check(p: Provider) {
@@ -47,9 +49,7 @@ async function check(p: Provider) {
     console.log(`${label} SKIPPED — ${KEY_ENV[p.name] ?? "key"} not set`);
     return;
   }
-  if (!process.env[(KEY_ENV[p.name] ?? "").split(" ")[0]]) {
-    console.log(`${label} (anonymous tier — no key set)`);
-  }
+
   console.log(`${label} ${envFor(p)}`);
   const started = Date.now();
   try {

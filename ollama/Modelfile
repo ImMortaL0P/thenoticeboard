@@ -1,0 +1,27 @@
+# thenoticeboard's local extraction model.
+#
+# Built on qwen2.5:7b because Ollama's DEFAULT CONTEXT IS 2048 TOKENS, which is
+# far too small here — a government notice runs to many thousands of tokens, so
+# the default would silently truncate the document and the closing date would
+# usually fall off the end. That single parameter is the difference between this
+# working and quietly producing nonsense.
+#
+# Build it with:   ollama create noticeboard -f ollama/Modelfile
+
+FROM qwen2.5:7b
+
+# Room for a full notice plus the prompt and the JSON answer.
+# Drop to 8192 if memory is tight; raise to 32768 if you have headroom.
+PARAMETER num_ctx 16384
+
+# Extraction is transcription, not writing. Zero temperature, no sampling
+# creativity: we want the same answer every time, and we want the date that is
+# printed on the page rather than a plausible-looking one.
+PARAMETER temperature 0
+PARAMETER top_p 0.1
+PARAMETER repeat_penalty 1.0
+
+# Long enough for the full JSON object with every field populated.
+PARAMETER num_predict 2048
+
+SYSTEM """You extract structured data from Indian government, PSU, banking and railway recruitment notifications. You return only valid JSON matching the requested schema. You never guess: if the document does not state a value, you return null for it. A missing field is corrected by a reviewer; a wrong field gets published."""

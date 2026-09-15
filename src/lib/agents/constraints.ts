@@ -5,6 +5,7 @@
 // share of scraped junk fails here. Only what survives is worth a model's time.
 
 import { todayIST, daysBetween } from "../domain";
+import { envNum } from "../env";
 
 export type ConstraintIssue = { field: string; severity: "reject" | "flag"; message: string };
 
@@ -15,13 +16,13 @@ export type ConstraintIssue = { field: string; severity: "reject" | "flag"; mess
  * exception is an extension: bodies routinely push a deadline after it passes,
  * and those notices are still live, so a recorded date_extension overrides this.
  */
-export const MAX_DAYS_PAST = Number(process.env.NOTICE_MAX_DAYS_PAST ?? 7);
+export const MAX_DAYS_PAST = envNum("NOTICE_MAX_DAYS_PAST", 7);
 
 /**
  * Hard floor. Nothing this far past its deadline is kept, extension or not —
  * an extension that itself expired a fortnight ago is just as dead.
  */
-export const HARD_EXPIRY_DAYS = Number(process.env.NOTICE_HARD_EXPIRY_DAYS ?? 15);
+export const HARD_EXPIRY_DAYS = envNum("NOTICE_HARD_EXPIRY_DAYS", 15);
 
 /**
  * Maximum age of the notice itself, by its publication date.
@@ -29,14 +30,14 @@ export const HARD_EXPIRY_DAYS = Number(process.env.NOTICE_HARD_EXPIRY_DAYS ?? 15
  * Scrapers constantly rediscover archive pages. A notification issued more than
  * six months ago is a record, not news, whatever its stated deadline says.
  */
-export const MAX_AGE_DAYS = Number(process.env.NOTICE_MAX_AGE_DAYS ?? 180);
+export const MAX_AGE_DAYS = envNum("NOTICE_MAX_AGE_DAYS", 180);
 
 /**
  * How far ahead a closing date may plausibly sit. Recruitment windows do not
  * open two years out; a date beyond this is almost always a parse error
  * (a 2126 for a 2026, or an exam date mistaken for a deadline).
  */
-export const MAX_DAYS_FUTURE = Number(process.env.NOTICE_MAX_DAYS_FUTURE ?? 400);
+export const MAX_DAYS_FUTURE = envNum("NOTICE_MAX_DAYS_FUTURE", 400);
 
 type Checkable = {
   /** A date_extension has been recorded, so the original deadline is moot. */

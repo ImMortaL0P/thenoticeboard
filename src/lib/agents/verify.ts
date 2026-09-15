@@ -25,6 +25,7 @@ import { providerChain } from "../scraper/providers";
 import { dailyExhausted } from "./limits";
 import { organizationChoices, resolveOrganization, learnDomain, isOfficialUrl } from "../orgs";
 import type { NoticeDraft } from "../extract";
+import { envFlag, envNum, envOr } from "../env";
 
 export type VerifyOutcome = {
   action: "publish" | "review" | "reject";
@@ -44,8 +45,7 @@ export type VerifyOutcome = {
  * wrong thing to spend the day on while those allowances sit unused.
  */
 export function verifyChain() {
-  const order = (process.env.VERIFY_PROVIDERS ??
-    "cerebras,gemini,mistral,groq,nvidia,sambanova,together,openrouter,ovh,github,cohere,huggingface,scaleway,cloudflare,llm7,anthropic,openai,ollama")
+  const order = (envOr("VERIFY_PROVIDERS", "cerebras,gemini,mistral,groq,nvidia,sambanova,together,openrouter,ovh,github,cohere,huggingface,scaleway,cloudflare,llm7,anthropic,openai,ollama"))
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
@@ -93,8 +93,8 @@ function merge(primary: NoticeDraft, secondary: NoticeDraft): NoticeDraft {
   return out as NoticeDraft;
 }
 
-const AUTO_PUBLISH_MIN = Number(process.env.AUTO_PUBLISH_MIN_CONFIDENCE ?? 85);
-const AUTO_PUBLISH = process.env.AUTO_PUBLISH === "1";
+const AUTO_PUBLISH_MIN = envNum("AUTO_PUBLISH_MIN_CONFIDENCE", 85);
+const AUTO_PUBLISH = envFlag("AUTO_PUBLISH");
 
 export type QueuedNotice = {
   id: string;
@@ -113,6 +113,7 @@ export type QueuedNotice = {
   maxAge: number | null;
   totalVacancies: number | null;
   organizationId: string;
+  status?: string;
   /** Recorded date_extension rows — an expired deadline may still be live. */
   updates?: { type: string; date: string }[];
 };

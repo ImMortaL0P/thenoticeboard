@@ -3,6 +3,7 @@
 import pdfParse from "pdf-parse";
 import { setGlobalDispatcher, Agent } from "undici";
 import crypto from "crypto";
+import { envOr } from "../env";
 
 /**
  * Configure Node's global fetch to gracefully tolerate the broken TLS setups
@@ -33,8 +34,7 @@ setGlobalDispatcher(
  * are rate-limited. Identifying as a browser is what makes them reachable.
  */
 const UA =
-  process.env.SCRAPE_USER_AGENT ??
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+  envOr("SCRAPE_USER_AGENT", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36");
 
 /** Headers a real browser sends; some portals check more than the UA. */
 function browserHeaders(accept: string): Record<string, string> {

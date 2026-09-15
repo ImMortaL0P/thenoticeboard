@@ -4,6 +4,7 @@
 import { extractFromText, type NoticeDraft } from "../extract";
 import { SECTORS, QUALIFICATIONS, NOTICE_TYPES, detectNoticeType } from "../domain";
 import { UNKNOWN, MAX_PDF_INLINE_BYTES, isQuotaExhausted, isTransient, isUnreachable, providerChain, usage, type ProviderInput } from "./providers";
+import { envNum } from "../env";
 
 export type ExtractInput = ProviderInput & { linkText: string | null; url?: string };
 
@@ -101,7 +102,7 @@ const BACKOFF_MS = [2_000, 6_000, 15_000];
  * notice during an outage, which looks like a hang and starves everything
  * behind it. Exceeding it defers the document rather than failing it.
  */
-const TOTAL_BUDGET_MS = Number(process.env.EXTRACT_BUDGET_MS ?? 180_000);
+const TOTAL_BUDGET_MS = envNum("EXTRACT_BUDGET_MS", 180_000);
 
 /**
  * Confidence at or above which the rules extractor is trusted on its own and no
@@ -112,7 +113,7 @@ const TOTAL_BUDGET_MS = Number(process.env.EXTRACT_BUDGET_MS ?? 180_000);
  * official notices are. Those cost nothing and are not improved by a model.
  * Lower it to spend less quota, raise it to prefer model quality.
  */
-const RULES_TRUST_MIN = Number(process.env.RULES_TRUST_MIN ?? 60);
+const RULES_TRUST_MIN = envNum("RULES_TRUST_MIN", 60);
 
 /** Fill a model draft's gaps from the rules draft. Never overwrites. */
 function mergeDrafts(primary: NoticeDraft, secondary: NoticeDraft): NoticeDraft {

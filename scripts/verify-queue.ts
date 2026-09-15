@@ -26,6 +26,21 @@ const LIMIT = (() => {
   return i >= 0 ? Number(process.argv[i + 1]) || 0 : 0;
 })();
 
+/**
+ * Which notices to work on. Defaults to the review queue, but the whole point
+ * of an unlimited local model is being able to re-read everything already
+ * stored — including notices that were published from a bad early extraction.
+ *
+ *   --status published,closed   re-verify live notices
+ *   --all                       every status worth re-reading
+ */
+const STATUSES = (() => {
+  if (process.argv.includes("--all")) return ["pending_review", "published", "closed", "draft"];
+  const i = process.argv.indexOf("--status");
+  if (i >= 0 && process.argv[i + 1]) return process.argv[i + 1].split(",").map((s) => s.trim());
+  return ["pending_review"];
+})();
+
 if (LOCAL_ONLY) process.env.VERIFY_PROVIDERS = "ollama";
 
 const HEARTBEAT_KEY = "agent:heartbeat";
@@ -46,19 +61,19 @@ const SELECT = {
   id: true, serialNumber: true, title: true, officialSourceUrl: true, discoveredUrl: true,
   officialNotificationPdfUrl: true, rawText: true, applyLast: true, applyStart: true,
   notificationDate: true, examDate: true, feeLast: true, minAge: true, maxAge: true,
-  totalVacancies: true, organizationId: true,
+  totalVacancies: true, organizationId: true, status: true,
   updates: { select: { type: true, date: true } },
 } as const;
 
 async function runQueue(): Promise<{ published: number; review: number; rejected: number }> {
   const queue = (await prisma.notification.findMany({
-    where: { status: "pending_review" },
+    where: { status: { in: STATUSES } },
     select: SELECT,
     orderBy: { createdAt: "asc" },
     ...(LIMIT > 0 ? { take: LIMIT } : {}),
   })) as QueuedNotice[];
 
-  console.log(`\n${queue.length} notice(s) pending review`);
+  console.log(`\n${queue.length} notice(s) with status ${STATUSES.join(", ")}`);
   console.log(`  cascade: ${verifyChain().map((p) => p.name).join(" -> ") || "(none configured)"}`);
   if (onlyLocalLeft()) console.log("  every hosted allowance is spent — running on the local model only\n");
 
@@ -80,11 +95,20 @@ async function runQueue(): Promise<{ published: number; review: number; rejected
 
     if (APPLY) {
       const data: Record<string, unknown> = { ...outcome.patch };
+      const wasLive = n.status === "published" || n.status === "closed";
+
       if (outcome.action === "publish") {
         data.status = "published";
         data.sourceVerifiedAt = new Date();
       } else if (outcome.action === "reject") {
-        data.status = "rejected";
+        // A live notice is never rejected outright by a re-read — one bad
+        // fetch or a temporarily unreachable source would pull a real notice
+        // off the board. It goes back to a human instead.
+        data.status = wasLive ? "pending_review" : "rejected";
+        if (wasLive) console.log("         (was live — sent to review rather than rejected)");
+      } else if (wasLive) {
+        // Enrichment only: gaps filled, status untouched.
+        delete data.status;
       }
       data.extractionNotes = `Agent ${new Date().toISOString().slice(0, 16)}: ${outcome.action}, confidence ${outcome.confidence}, via ${outcome.providersUsed.join("+") || "rules"}. ${outcome.reasons.slice(0, 3).join("; ")}`.slice(0, 900);
       await prisma.notification.update({ where: { id: n.id }, data });

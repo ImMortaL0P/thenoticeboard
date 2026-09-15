@@ -14,6 +14,7 @@ import { autoExtract, scoreConfidence, ExtractionUnavailable, AllProvidersExhaus
 import { getNextNotificationSerialNumber } from "../serial";
 import { organizationChoices, resolveOrganization, unassignedOrg, learnDomain, isOfficialUrl } from "../orgs";
 import { daysBetween } from "../domain";
+import { envNum } from "../env";
 
 export type SourceWithOrg = Prisma.SourceGetPayload<{ include: { organization: true } }>;
 export type RunResult = {
@@ -25,9 +26,9 @@ export type RunResult = {
   message: string;
 };
 
-const MAX_NEW = Math.max(1, Number(process.env.SCRAPE_MAX_NEW_PER_SOURCE ?? 25));
+const MAX_NEW = Math.max(1, envNum("SCRAPE_MAX_NEW_PER_SOURCE", 25));
 /** Aggregator listing pages opened per run to find the official link behind them. */
-const MAX_AGGREGATOR_HOPS = Math.max(1, Number(process.env.SCRAPE_MAX_AGGREGATOR_HOPS ?? 15));
+const MAX_AGGREGATOR_HOPS = Math.max(1, envNum("SCRAPE_MAX_AGGREGATOR_HOPS", 15));
 const MAX_RAW = 40 * 1024;
 
 function hostOfUrl(url: string): string {
